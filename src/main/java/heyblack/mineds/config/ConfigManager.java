@@ -28,13 +28,11 @@ public class ConfigManager {
     }
 
     private Map<String, String> config = new LinkedHashMap<>();
+    private boolean changed = false;
 
     public void loadConfig() throws IOException {
         // extract this method for implementing config reload
         if (Files.exists(MineDS.CONFIG_PATH)) {
-//            String content = new String(Files.readAllBytes(MineDS.CONFIG_PATH));
-//            config = MineDS.GSON.fromJson(content, Map.class);
-
             try (Reader reader = new InputStreamReader(
                     new FileInputStream(MineDS.CONFIG_PATH.toFile()), StandardCharsets.UTF_8
             )) {
@@ -59,6 +57,30 @@ public class ConfigManager {
 
     public String get(String key) {
         return config.get(key);
+    }
+
+    public void setConfig(String key, String value) {
+        config.put(key, value);
+        changed = true;
+    }
+
+    public void saveConfig() {
+        if (changed) {
+            int maxRetry = 3;
+            int retry = 0;
+
+            while (retry < maxRetry) {
+                try {
+                    Files.write(MineDS.CONFIG_PATH, MineDS.GSON.toJson(config).getBytes(StandardCharsets.UTF_8));
+
+                    return;
+                } catch (IOException e) {
+                    retry++;
+                    MineDS.LOGGER.error("[MineDS] Failed to save config! " + retry + "/" + maxRetry);
+                }
+            }
+            MineDS.LOGGER.error(String.format("[MineDS] Failed to save config after %d retries! Closing without save config!", maxRetry));
+        }
     }
 
     private static boolean fixConfig(Map<String, String> cfgToCheck) {

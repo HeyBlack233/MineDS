@@ -111,5 +111,9 @@ public class MineDSClient implements ClientModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
             requestExecutor.shutdown();
         });
+
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
+            configManager.saveConfig();
+        });
     }
 }
