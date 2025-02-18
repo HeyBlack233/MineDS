@@ -12,6 +12,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
@@ -76,6 +77,7 @@ public class MineDSClient implements ClientModInitializer {
                                                                     .formatted(Formatting.WHITE)),
                                                     false
                                             );
+                                            player.sendMessage(Text.of(""), false); // empty line
                                         });
                                     });
 
