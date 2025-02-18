@@ -48,7 +48,7 @@ public class DSApiHandler {
                 return content;
             } else {
                 String errorBody = readInputStream(connection.getErrorStream());
-                MineDS.LOGGER.error("[MineDS] API Request Fail: HTTP " + statusCode + "\n" + errorBody);
+                MineDS.LOGGER.error("[MineDS] API request fail: HTTP " + statusCode + "\n" + errorBody);
                 return "请求失败: " + statusCode;
             }
         } catch (Exception e) {

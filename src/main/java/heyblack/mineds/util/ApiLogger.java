@@ -49,7 +49,7 @@ public class ApiLogger {
                     StandardOpenOption.CREATE
             );
         } catch (IOException e) {
-            MineDS.LOGGER.error("[MineDS] Failed to Log API Call!", e);
+            MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
         }
     }
 

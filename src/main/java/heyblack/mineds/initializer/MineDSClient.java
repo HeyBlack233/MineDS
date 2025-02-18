@@ -101,10 +101,21 @@ public class MineDSClient implements ClientModInitializer {
                                     }
                                     return 1;
                                 }))
-                        .then(ClientCommandManager.literal("forceshut")
+                        .then(ClientCommandManager.literal("forceshutdown")
                                 .executes(context -> {
+                                    context.getSource().getPlayer().sendMessage(
+                                            new LiteralText("[MineDS] ").formatted(Formatting.GRAY)
+                                                    .append(
+                                                            new LiteralText("Shutting down all request executor threads")
+                                                    ),
+                                            false
+                                    );
                                     requestExecutor.shutdown();
                                     return 1;
+                                }))
+                        .then(ClientCommandManager.literal("info")
+                                .executes(context -> {
+                                    return 0;
                                 }))
         );
 
