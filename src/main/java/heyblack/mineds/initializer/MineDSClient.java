@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
@@ -116,6 +117,15 @@ public class MineDSClient implements ClientModInitializer {
                                 }))
                         .then(ClientCommandManager.literal("info")
                                 .executes(context -> {
+                                    context.getSource().getPlayer().sendMessage(
+                                            getChatPrefix().append(
+                                                    new LiteralText("Active thread count: " +
+                                                            ((ThreadPoolExecutor) requestExecutor).getActiveCount() +
+                                                            ". Max count: " + configManager.get(ConfigOption.MAX_REQUEST.id))
+                                            ),
+                                            false
+                                    );
+
                                     return 0;
                                 }))
         );
