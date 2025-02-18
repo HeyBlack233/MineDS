@@ -1,6 +1,7 @@
 package heyblack.mineds.config;
 
 public enum ConfigOption {
+    // API Settings
     URL("url", "https://api.siliconflow.cn/v1/chat/completions"),
     MODEL("model", "deepseek-ai/DeepSeek-R1"),
     API_KEY("api_key", "YOUR_API_KEY"),
