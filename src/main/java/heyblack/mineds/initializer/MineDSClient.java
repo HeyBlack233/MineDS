@@ -11,6 +11,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
+import net.minecraft.text.MutableText;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
@@ -46,7 +47,7 @@ public class MineDSClient implements ClientModInitializer {
                                     ClientPlayerEntity player = context.getSource().getPlayer();
 
                                     player.sendMessage(
-                                            new LiteralText("[MineDS] ").formatted(Formatting.GRAY)
+                                            getChatPrefix()
                                                     .append(
                                                             new LiteralText(player.getName().asString())
                                                                     .formatted(Formatting.LIGHT_PURPLE)
@@ -65,7 +66,7 @@ public class MineDSClient implements ClientModInitializer {
                                         client.execute(() -> {
                                             MineDS.LOGGER.info("[MineDS] Sending output message");
                                             player.sendMessage(
-                                                    new LiteralText("[MineDS] ").formatted(Formatting.GRAY)
+                                                    getChatPrefix()
                                                             .append(
                                                                     new LiteralText(configManager.get(ConfigOption.AI_NAME.id))
                                                                             .formatted(Formatting.BLUE)
@@ -90,7 +91,7 @@ public class MineDSClient implements ClientModInitializer {
                                         configManager.loadConfig();
                                     } catch (IOException e) {
                                         context.getSource().getPlayer().sendMessage(
-                                                new LiteralText("[MineDS] ").formatted(Formatting.GRAY)
+                                                getChatPrefix()
                                                         .append(
                                                                 new LiteralText("Failed to reload config!")
                                                                         .formatted(Formatting.WHITE)
@@ -104,7 +105,7 @@ public class MineDSClient implements ClientModInitializer {
                         .then(ClientCommandManager.literal("forceshutdown")
                                 .executes(context -> {
                                     context.getSource().getPlayer().sendMessage(
-                                            new LiteralText("[MineDS] ").formatted(Formatting.GRAY)
+                                            getChatPrefix()
                                                     .append(
                                                             new LiteralText("Shutting down all request executor threads")
                                                     ),
@@ -126,5 +127,9 @@ public class MineDSClient implements ClientModInitializer {
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
             configManager.saveConfig();
         });
+    }
+
+    private static MutableText getChatPrefix() {
+        return new LiteralText("[MineDS] ").formatted(Formatting.GRAY);
     }
 }
