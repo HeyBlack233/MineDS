@@ -11,8 +11,6 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
-import net.minecraft.text.Style;
-import net.minecraft.text.TextColor;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
@@ -20,7 +18,8 @@ import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.mojang.brigadier.arguments.StringArgumentType.*;
+import static com.mojang.brigadier.arguments.StringArgumentType.getString;
+import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 
 public class MineDSClient implements ClientModInitializer {
     private static final ConfigManager configManager = ConfigManager.getInstance();

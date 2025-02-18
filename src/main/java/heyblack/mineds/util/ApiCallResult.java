@@ -1,8 +1,6 @@
 package heyblack.mineds.util;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import heyblack.mineds.MineDS;
 
 public class ApiCallResult {
     public JsonObject input;

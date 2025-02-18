@@ -25,13 +25,14 @@ public class ApiLogger {
 
     private static final Path CACHE_PATH = MineDS.LOG_PATH.resolve(".index");
 
-    public static void log(ApiCallResult result) throws IOException {
-        int i = getLastIndex() + 1;
+    public static void log(ApiCallResult result) {
+        try {
+            int i = getLastIndex() + 1;
 
-        String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
-        MineDS.LOGGER.info("[MineDS] Logging api call to " + fileName);
+            String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
+            MineDS.LOGGER.info("[MineDS] Logging api call to " + fileName);
 
-        // write log file
+            // write log file
             Files.write(
                     MineDS.LOG_PATH.resolve(fileName),
                     MineDS.GSON.toJson(result).getBytes(StandardCharsets.UTF_8),
@@ -47,7 +48,9 @@ public class ApiLogger {
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.CREATE
             );
-
+        } catch (IOException e) {
+            MineDS.LOGGER.error("[MineDS] Failed to Log API Call!", e);
+        }
     }
 
     private static int getLastIndex() throws IOException {
