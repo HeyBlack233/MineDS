@@ -5,6 +5,7 @@ import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.DSApiHandler;
 import heyblack.mineds.util.ApiLogger;
+import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -17,6 +18,7 @@ import net.minecraft.util.Formatting;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -30,6 +32,8 @@ public class MineDSClient implements ClientModInitializer {
     private static final ExecutorService requestExecutor = Executors.newFixedThreadPool(
             Integer.parseInt((configManager.get(ConfigOption.MAX_REQUEST.id)))
     );
+
+    private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
 
     @Override
     public void onInitializeClient() {
@@ -50,40 +54,79 @@ public class MineDSClient implements ClientModInitializer {
 
                                     player.sendMessage(
                                             getChatPrefix()
-                                                    .append(
-                                                            new LiteralText(player.getName().asString())
-                                                                    .formatted(Formatting.LIGHT_PURPLE)
-                                                    )
+                                                    .append(new LiteralText(player.getName().asString())
+                                                            .formatted(Formatting.LIGHT_PURPLE))
                                                     .append(new LiteralText(": " + message)
                                                             .formatted(Formatting.WHITE)),
                                             false
                                     );
 
                                     requestExecutor.submit(() -> {
-                                        // handle api call in separate thread pool
-                                        String output = DSApiHandler.callApiOnCommand(message, configManager.getConfig());
+                                        SentenceSplitter splitter = new SentenceSplitter();
 
-                                        // print output in server thread
-                                        MinecraftClient client = MinecraftClient.getInstance();
-                                        client.execute(() -> {
-                                            MineDS.LOGGER.info("[MineDS] Sending output message");
-                                            player.sendMessage(
-                                                    getChatPrefix()
-                                                            .append(
-                                                                    new LiteralText(configManager.get(ConfigOption.AI_NAME.id))
-                                                                            .formatted(Formatting.BLUE)
-                                                            )
-                                                            .append(new LiteralText(": " + output)
-                                                                    .formatted(Formatting.WHITE)),
-                                                    false
-                                            );
-                                            player.sendMessage(Text.of(""), false); // empty line
-                                        });
+                                        DSApiHandler.callApiStreaming(message, configManager.getConfig(),
+                                                new DSApiHandler.StreamResponseHandler() {
+                                                    @Override
+                                                    public void onContentChunk(String chunk) {
+                                                        List<String> sentences = splitter.processChunk(chunk);
+
+                                                        if (!sentences.isEmpty()) {
+                                                            CLIENT.execute(() -> {
+                                                                for (String sentence : sentences) {
+                                                                    sendAIMessage(sentence.trim());
+                                                                }
+                                                            });
+                                                        }
+                                                    }
+
+                                                    @Override
+                                                    public void onComplete() {
+                                                        String remaining = splitter.getRemaining();
+                                                        if (!remaining.isEmpty()) {
+                                                            CLIENT.execute(() -> {
+                                                                sendAIMessage(remaining.trim());
+                                                            });
+                                                        }
+                                                        CLIENT.execute(() -> {
+                                                            player.sendMessage(
+                                                                    getChatPrefix()
+                                                                            .append(new LiteralText("Output complete")
+                                                                                    .formatted(Formatting.ITALIC)),
+                                                                    false
+                                                            );
+                                                        });
+                                                    }
+
+                                                    @Override
+                                                    public void onError(String error) {
+                                                        CLIENT.execute(() -> {
+                                                            player.sendMessage(
+                                                                    getChatPrefix()
+                                                                            .append(new LiteralText(
+                                                                                    "Error: " + error)
+                                                                                    .formatted(Formatting.RED)),
+                                                                    false
+                                                            );
+                                                        });
+                                                    }
+
+                                                    private void sendAIMessage(String content) {
+                                                        player.sendMessage(
+                                                                getChatPrefix()
+                                                                        .append(new LiteralText(
+                                                                                configManager.get(ConfigOption.AI_NAME.id))
+                                                                                .formatted(Formatting.BLUE))
+                                                                        .append(new LiteralText(": " + content)
+                                                                                .formatted(Formatting.WHITE)),
+                                                                false
+                                                        );
+                                                    }
+                                                });
                                     });
 
-                            return 1;
-                        }))
-
+                                    return 1;
+                                })
+                        )
         );
 
         ClientCommandManager.DISPATCHER.register(
