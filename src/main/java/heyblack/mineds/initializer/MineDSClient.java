@@ -1,10 +1,14 @@
 package heyblack.mineds.initializer;
 
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.DSApiHandler;
-import heyblack.mineds.util.ApiLogger;
+import heyblack.mineds.util.message.AssistantMessage;
+import heyblack.mineds.util.result.ApiCallResult;
+import heyblack.mineds.util.result.ApiResultLogger;
+import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
@@ -12,11 +16,12 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -31,11 +36,13 @@ public class MineDSClient implements ClientModInitializer {
             Integer.parseInt((configManager.get(ConfigOption.MAX_REQUEST.id)))
     );
 
+    private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
+
     @Override
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            ApiLogger.initializeCacheOnStartup();
+            ApiResultLogger.initializeCacheOnStartup();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);
@@ -50,40 +57,113 @@ public class MineDSClient implements ClientModInitializer {
 
                                     player.sendMessage(
                                             getChatPrefix()
-                                                    .append(
-                                                            new LiteralText(player.getName().asString())
-                                                                    .formatted(Formatting.LIGHT_PURPLE)
-                                                    )
+                                                    .append(new LiteralText(player.getName().asString())
+                                                            .formatted(Formatting.LIGHT_PURPLE))
                                                     .append(new LiteralText(": " + message)
                                                             .formatted(Formatting.WHITE)),
                                             false
                                     );
 
                                     requestExecutor.submit(() -> {
-                                        // handle api call in separate thread pool
-                                        String output = DSApiHandler.callApiOnCommand(message, configManager.getConfig());
+                                        SentenceSplitter splitter = new SentenceSplitter();
 
-                                        // print output in server thread
-                                        MinecraftClient client = MinecraftClient.getInstance();
-                                        client.execute(() -> {
-                                            MineDS.LOGGER.info("[MineDS] Sending output message");
-                                            player.sendMessage(
-                                                    getChatPrefix()
-                                                            .append(
-                                                                    new LiteralText(configManager.get(ConfigOption.AI_NAME.id))
-                                                                            .formatted(Formatting.BLUE)
-                                                            )
-                                                            .append(new LiteralText(": " + output)
-                                                                    .formatted(Formatting.WHITE)),
-                                                    false
-                                            );
-                                            player.sendMessage(Text.of(""), false); // empty line
-                                        });
+                                        DSApiHandler.callApiStreaming(message, configManager.getConfig(),
+                                                new DSApiHandler.StreamResponseHandler() {
+                                                    private final StringBuilder outputContent = new StringBuilder();
+                                                    private final StringBuilder outputContentReasoning = new StringBuilder();
+                                                    private final JsonObject inputRequest = DSApiHandler.populateRequestFromUserInput(
+                                                            message,
+                                                            configManager.getConfig()
+                                                    );
+
+                                                    @Override
+                                                    public void onContentChunk(String content, String reasoning_content) {
+                                                        outputContent.append(content);
+                                                        outputContentReasoning.append(reasoning_content);
+
+                                                        List<String> sentences = splitter.processChunk(content);
+
+                                                        if (!sentences.isEmpty()) {
+                                                            CLIENT.execute(() -> {
+                                                                for (String sentence : sentences) {
+                                                                    sendAIMessage(sentence.trim());
+                                                                }
+                                                            });
+                                                        }
+                                                    }
+
+                                                    @Override
+                                                    public void onComplete() {
+                                                        String remaining = splitter.getRemaining();
+                                                        if (!remaining.isEmpty()) {
+                                                            CLIENT.execute(() -> {
+                                                                sendAIMessage(remaining.trim());
+                                                            });
+                                                        }
+                                                        CLIENT.execute(() -> {
+                                                            player.sendMessage(
+                                                                    getChatPrefix()
+                                                                            .append(new LiteralText("Output complete")
+                                                                                    .formatted(Formatting.ITALIC)),
+                                                                    false
+                                                            );
+                                                        });
+
+                                                        JsonObject outputJson = new JsonObject();
+                                                        List<AssistantMessage> message = new ArrayList<>();
+                                                        message.add(new AssistantMessage(
+                                                                outputContent.toString().trim(),
+                                                                outputContentReasoning.toString().trim()
+                                                        ));
+
+                                                        outputJson.add("message", MineDS.GSON.toJsonTree(message));
+
+                                                        ApiResultLogger.log(new ApiCallResult(
+                                                                inputRequest,
+                                                                outputJson,
+                                                                true
+                                                        ));
+                                                    }
+
+                                                    @Override
+                                                    public void onError(String error) {
+                                                        JsonObject errorJson = new JsonObject();
+                                                        errorJson.addProperty("error", error);
+
+                                                        ApiResultLogger.log(new ApiCallResult(
+                                                                inputRequest,
+                                                                errorJson,
+                                                                false
+                                                        ));
+
+                                                        CLIENT.execute(() -> {
+                                                            player.sendMessage(
+                                                                    getChatPrefix()
+                                                                            .append(new LiteralText(
+                                                                                    "Error: " + error)
+                                                                                    .formatted(Formatting.RED)),
+                                                                    false
+                                                            );
+                                                        });
+                                                    }
+
+                                                    private void sendAIMessage(String content) {
+                                                        player.sendMessage(
+                                                                getChatPrefix()
+                                                                        .append(new LiteralText(
+                                                                                configManager.get(ConfigOption.AI_NAME.id))
+                                                                                .formatted(Formatting.BLUE))
+                                                                        .append(new LiteralText(": " + content)
+                                                                                .formatted(Formatting.WHITE)),
+                                                                false
+                                                        );
+                                                    }
+                                                });
                                     });
 
-                            return 1;
-                        }))
-
+                                    return 1;
+                                })
+                        )
         );
 
         ClientCommandManager.DISPATCHER.register(

@@ -3,11 +3,12 @@ package heyblack.mineds.dsapi;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
-import heyblack.mineds.util.ApiCallResult;
-import heyblack.mineds.util.ApiLogger;
-import heyblack.mineds.util.Message;
+import heyblack.mineds.util.message.UserMessage;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -16,80 +17,98 @@ import java.util.List;
 import java.util.Map;
 
 public class DSApiHandler {
-    public static String callApiOnCommand(String message, Map<String, String> config) {
-        HttpURLConnection connection = null;
+    public interface StreamResponseHandler {
+        void onContentChunk(String content, String reasoning_content);
+        void onComplete();
+        void onError(String error);
+    }
+    public static void callApiStreaming(String message, Map<String, String> config, StreamResponseHandler handler) {
+        MineDS.LOGGER.info("[MineDS] Calling API");
         try {
-            MineDS.LOGGER.info("[MineDS] Calling API");
-
             JsonObject requestBody = populateRequestFromUserInput(message, config);
-            String requestString = MineDS.GSON.toJson(requestBody);
 
             URL url = new URL(config.get(ConfigOption.URL.id));
-            connection = (HttpURLConnection) url.openConnection();
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
             connection.setRequestMethod("POST");
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + config.get(ConfigOption.API_KEY.id));
-            connection.setConnectTimeout(10_000);
-            connection.setReadTimeout(180_000);
+            connection.setRequestProperty("Accept", "text/event-stream");
             connection.setDoOutput(true);
 
             try (OutputStream os = connection.getOutputStream()) {
-                byte[] input = requestString.getBytes(StandardCharsets.UTF_8);
-                os.write(input, 0, input.length);
+                os.write(MineDS.GSON.toJson(requestBody).getBytes(StandardCharsets.UTF_8));
             }
 
-            int statusCode = connection.getResponseCode();
-            if (statusCode == HttpURLConnection.HTTP_OK) {
-                String responseBody = readInputStream(connection.getInputStream());
-                JsonObject responseObj = MineDS.GSON.fromJson(responseBody, JsonObject.class);
-                ApiLogger.log(new ApiCallResult(requestBody, responseObj, true));
-
-                String content = extractContent(responseObj);
-                return content;
+            if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+                MineDS.LOGGER.info("[MineDS] API call success");
+                processStream(connection, handler);
+                handler.onComplete();
             } else {
-                String errorBody = readInputStream(connection.getErrorStream());
-                MineDS.LOGGER.error("[MineDS] API request fail: HTTP " + statusCode + "\n" + errorBody);
-                return "请求失败: " + statusCode;
+                MineDS.LOGGER.warn("[MineDS] API call fail");
+                handler.onError("HTTP错误: " + connection.getResponseCode());
             }
         } catch (Exception e) {
-            MineDS.LOGGER.error("[MineDS] Error ", e);
-            return "发生内部错误: " + e.getClass().getSimpleName();
-        } finally {
-            if (connection != null) connection.disconnect();
+            MineDS.LOGGER.error("[MineDS] API call error");
+            handler.onError("请求失败: " + e.getMessage());
         }
     }
 
-    private static String readInputStream(InputStream inputStream) throws IOException {
-        if (inputStream == null) return "";
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-            StringBuilder response = new StringBuilder();
+    private static void processStream(
+            HttpURLConnection connection,
+            StreamResponseHandler handler
+    ) throws IOException {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
 
-            while ((line = br.readLine()) != null) {
-                response.append(line);
-            }
+            while ((line = reader.readLine()) != null) {
+                if (line.startsWith("data: ")) {
+                    String jsonData = line.substring(6).trim();
+                    if ("[DONE]".equals(jsonData)) break;
 
-            return response.toString();
+                    JsonObject response = MineDS.GSON.fromJson(jsonData, JsonObject.class);
+                    String content = extractDeltaContent(response);
+                    String reasoning_content = extractDeltaContentReasoning(response);
+                    handler.onContentChunk(content, reasoning_content);
+                }
+            }
         }
     }
 
-    private static String extractContent(JsonObject response) {
-        return response.getAsJsonArray("choices")
-                .get(0).getAsJsonObject()
-                .getAsJsonObject("message")
-                .get("content").getAsString();
+    private static String extractDeltaContent(JsonObject response) {
+        try {
+            return response.getAsJsonArray("choices")
+                    .get(0).getAsJsonObject()
+                    .getAsJsonObject("delta")
+                    .get("content").getAsString();
+        } catch (Exception e) {
+            return "";
+        }
     }
 
-    private static JsonObject populateRequestFromUserInput(String message, Map<String, String> config) {
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
-        messages.add(new Message("user", message));
+    private static String extractDeltaContentReasoning(JsonObject response) {
+        try {
+            return response.getAsJsonArray("choices")
+                    .get(0).getAsJsonObject()
+                    .getAsJsonObject("delta")
+                    .get("reasoning_content").getAsString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public static JsonObject populateRequestFromUserInput(String message, Map<String, String> config) {
+        List<UserMessage> messages = new ArrayList<>();
+        messages.add(new UserMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
+        messages.add(new UserMessage("user", message));
 
         JsonObject body = new JsonObject();
         body.addProperty("model", config.get(ConfigOption.MODEL.id));
         body.add("messages", MineDS.GSON.toJsonTree(messages));
         body.addProperty("temperature", Double.parseDouble(config.get(ConfigOption.TEMPERATURE.id)));
         body.addProperty("max_tokens", Integer.parseInt(config.get(ConfigOption.MAX_TOKENS.id)));
+        body.addProperty("stream", true);
 
         return body;
     }
