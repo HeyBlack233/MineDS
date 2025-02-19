@@ -1,10 +1,10 @@
-package heyblack.mineds.util;
+package heyblack.mineds.util.message;
 
-public class Message {
+public abstract class AbstractMessage {
     private String role;
     private String content;
 
-    public Message(String role, String content) {
+    public AbstractMessage(String role, String content) {
         this.role = role;
         this.content = content;
     }
@@ -16,4 +16,5 @@ public class Message {
     public String getContent() {
         return content;
     }
+
 }

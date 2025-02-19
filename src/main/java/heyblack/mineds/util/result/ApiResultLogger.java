@@ -1,4 +1,4 @@
-package heyblack.mineds.util;
+package heyblack.mineds.util.result;
 
 import heyblack.mineds.MineDS;
 
@@ -16,7 +16,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class ApiLogger {
+public class ApiResultLogger {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
     private static final String PREFIX = "MineDS_";

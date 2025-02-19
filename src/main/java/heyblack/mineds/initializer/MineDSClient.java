@@ -1,10 +1,13 @@
 package heyblack.mineds.initializer;
 
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.DSApiHandler;
-import heyblack.mineds.util.ApiLogger;
+import heyblack.mineds.util.message.AssistantMessage;
+import heyblack.mineds.util.result.ApiCallResult;
+import heyblack.mineds.util.result.ApiResultLogger;
 import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
@@ -13,11 +16,11 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
 import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,7 +42,7 @@ public class MineDSClient implements ClientModInitializer {
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            ApiLogger.initializeCacheOnStartup();
+            ApiResultLogger.initializeCacheOnStartup();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);
@@ -66,9 +69,19 @@ public class MineDSClient implements ClientModInitializer {
 
                                         DSApiHandler.callApiStreaming(message, configManager.getConfig(),
                                                 new DSApiHandler.StreamResponseHandler() {
+                                                    private final StringBuilder outputContent = new StringBuilder();
+                                                    private final StringBuilder outputContentReasoning = new StringBuilder();
+                                                    private final JsonObject inputRequest = DSApiHandler.populateRequestFromUserInput(
+                                                            message,
+                                                            configManager.getConfig()
+                                                    );
+
                                                     @Override
-                                                    public void onContentChunk(String chunk) {
-                                                        List<String> sentences = splitter.processChunk(chunk);
+                                                    public void onContentChunk(String content, String reasoning_content) {
+                                                        outputContent.append(content);
+                                                        outputContentReasoning.append(reasoning_content);
+
+                                                        List<String> sentences = splitter.processChunk(content);
 
                                                         if (!sentences.isEmpty()) {
                                                             CLIENT.execute(() -> {
@@ -95,10 +108,34 @@ public class MineDSClient implements ClientModInitializer {
                                                                     false
                                                             );
                                                         });
+
+                                                        JsonObject outputJson = new JsonObject();
+                                                        List<AssistantMessage> message = new ArrayList<>();
+                                                        message.add(new AssistantMessage(
+                                                                outputContent.toString().trim(),
+                                                                outputContentReasoning.toString().trim()
+                                                        ));
+
+                                                        outputJson.add("message", MineDS.GSON.toJsonTree(message));
+
+                                                        ApiResultLogger.log(new ApiCallResult(
+                                                                inputRequest,
+                                                                outputJson,
+                                                                true
+                                                        ));
                                                     }
 
                                                     @Override
                                                     public void onError(String error) {
+                                                        JsonObject errorJson = new JsonObject();
+                                                        errorJson.addProperty("error", error);
+
+                                                        ApiResultLogger.log(new ApiCallResult(
+                                                                inputRequest,
+                                                                errorJson,
+                                                                false
+                                                        ));
+
                                                         CLIENT.execute(() -> {
                                                             player.sendMessage(
                                                                     getChatPrefix()

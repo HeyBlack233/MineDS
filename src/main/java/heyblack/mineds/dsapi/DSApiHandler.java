@@ -3,7 +3,7 @@ package heyblack.mineds.dsapi;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
-import heyblack.mineds.util.Message;
+import heyblack.mineds.util.message.UserMessage;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -18,7 +18,7 @@ import java.util.Map;
 
 public class DSApiHandler {
     public interface StreamResponseHandler {
-        void onContentChunk(String chunk);
+        void onContentChunk(String content, String reasoning_content);
         void onComplete();
         void onError(String error);
     }
@@ -69,7 +69,8 @@ public class DSApiHandler {
 
                     JsonObject response = MineDS.GSON.fromJson(jsonData, JsonObject.class);
                     String content = extractDeltaContent(response);
-                    handler.onContentChunk(content);
+                    String reasoning_content = extractDeltaContentReasoning(response);
+                    handler.onContentChunk(content, reasoning_content);
                 }
             }
         }
@@ -86,10 +87,21 @@ public class DSApiHandler {
         }
     }
 
-    private static JsonObject populateRequestFromUserInput(String message, Map<String, String> config) {
-        List<Message> messages = new ArrayList<>();
-        messages.add(new Message("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
-        messages.add(new Message("user", message));
+    private static String extractDeltaContentReasoning(JsonObject response) {
+        try {
+            return response.getAsJsonArray("choices")
+                    .get(0).getAsJsonObject()
+                    .getAsJsonObject("delta")
+                    .get("reasoning_content").getAsString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public static JsonObject populateRequestFromUserInput(String message, Map<String, String> config) {
+        List<UserMessage> messages = new ArrayList<>();
+        messages.add(new UserMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
+        messages.add(new UserMessage("user", message));
 
         JsonObject body = new JsonObject();
         body.addProperty("model", config.get(ConfigOption.MODEL.id));
