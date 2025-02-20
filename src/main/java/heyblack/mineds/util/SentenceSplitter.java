@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 
 public class SentenceSplitter {
     private static final Pattern END_PUNCTUATION = Pattern.compile(
-            "(?<![\\ud800-\\udbff])[。！？；](?![\\udc00-\\udfff])"
+            "(?<![\\ud800-\\udbff])[。！？；）](?![\\udc00-\\udfff])"
     );
     private final StringBuilder buffer = new StringBuilder();
 
@@ -25,7 +25,7 @@ public class SentenceSplitter {
 
         if (lastEndPos != -1) {
             String fullContent = buffer.substring(0, lastEndPos);
-            String[] sentences = fullContent.split("(?<=[。！？；])");
+            String[] sentences = fullContent.split("(?<=[。！？；）])");
 
             Collections.addAll(completeSentences, sentences);
 

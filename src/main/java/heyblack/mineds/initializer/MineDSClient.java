@@ -6,9 +6,9 @@ import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.DSApiHandler;
-import heyblack.mineds.util.message.AssistantMessage;
+import heyblack.mineds.util.message.OutputMessage;
 import heyblack.mineds.util.result.ApiCallResult;
-import heyblack.mineds.util.result.ApiResultLogger;
+import heyblack.mineds.util.result.CallResultLogHandler;
 import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
@@ -44,7 +44,7 @@ public class MineDSClient implements ClientModInitializer {
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            ApiResultLogger.initializeCacheOnStartup();
+            CallResultLogHandler.initializeCacheOnStartup();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);
@@ -53,16 +53,14 @@ public class MineDSClient implements ClientModInitializer {
         ClientCommandManager.DISPATCHER.register(
                 ClientCommandManager.literal("ds")
                         .then(ClientCommandManager.argument("message", greedyString())
-                                .executes(MineDSClient::callApiOnCommand)
+                                .executes(context -> callApiOnCommand(context, false))
                         )
         );
 
         ClientCommandManager.DISPATCHER.register(
                 ClientCommandManager.literal("dsc")
                         .then(ClientCommandManager.argument("message", greedyString())
-                                .executes(context -> {
-                                    return 1;
-                                }))
+                                .executes(context -> callApiOnCommand(context, true)))
         );
 
         ClientCommandManager.DISPATCHER.register(
@@ -120,7 +118,7 @@ public class MineDSClient implements ClientModInitializer {
         });
     }
 
-    public static int callApiOnCommand(CommandContext<FabricClientCommandSource> context) {
+    public static int callApiOnCommand(CommandContext<FabricClientCommandSource> context, boolean pullContentFromLastChat) {
         String message = getString(context, "message");
         ClientPlayerEntity player = context.getSource().getPlayer();
 
@@ -140,10 +138,7 @@ public class MineDSClient implements ClientModInitializer {
                     new DSApiHandler.StreamResponseHandler() {
                         private final StringBuilder outputContent = new StringBuilder();
                         private final StringBuilder outputContentReasoning = new StringBuilder();
-                        private final JsonObject inputRequest = DSApiHandler.populateRequestFromUserInput(
-                                message,
-                                configManager.getConfig()
-                        );
+                        private JsonObject inputRequest;
 
                         @Override
                         public void onContentChunk(String content, String reasoning_content) {
@@ -162,7 +157,7 @@ public class MineDSClient implements ClientModInitializer {
                         }
 
                         @Override
-                        public void onComplete() {
+                        public void onComplete(String message, boolean pullContentFromLastChat) throws Exception {
                             String remaining = splitter.getRemaining();
                             if (!remaining.isEmpty()) {
                                 CLIENT.execute(() -> {
@@ -179,15 +174,21 @@ public class MineDSClient implements ClientModInitializer {
                             });
 
                             JsonObject outputJson = new JsonObject();
-                            List<AssistantMessage> message = new ArrayList<>();
-                            message.add(new AssistantMessage(
+                            List<OutputMessage> messageOut = new ArrayList<>();
+                            messageOut.add(new OutputMessage(
                                     outputContent.toString().trim(),
                                     outputContentReasoning.toString().trim()
                             ));
 
-                            outputJson.add("message", MineDS.GSON.toJsonTree(message));
+                            outputJson.add("message", MineDS.GSON.toJsonTree(messageOut));
 
-                            ApiResultLogger.log(new ApiCallResult(
+                            inputRequest = DSApiHandler.populateRequestBody(
+                                    message,
+                                    configManager.getConfig(),
+                                    pullContentFromLastChat
+                            );
+
+                            CallResultLogHandler.log(new ApiCallResult(
                                     inputRequest,
                                     outputJson,
                                     true
@@ -199,7 +200,7 @@ public class MineDSClient implements ClientModInitializer {
                             JsonObject errorJson = new JsonObject();
                             errorJson.addProperty("error", error);
 
-                            ApiResultLogger.log(new ApiCallResult(
+                            CallResultLogHandler.log(new ApiCallResult(
                                     inputRequest,
                                     errorJson,
                                     false
@@ -227,13 +228,14 @@ public class MineDSClient implements ClientModInitializer {
                                     false
                             );
                         }
-                    });
+                    },
+                    pullContentFromLastChat);
         });
 
         return 1;
     }
 
-    private static MutableText getChatPrefix() {
+    public static MutableText getChatPrefix() {
         return new LiteralText("[MineDS] ").formatted(Formatting.GRAY);
     }
 }

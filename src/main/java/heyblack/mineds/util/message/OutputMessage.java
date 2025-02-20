@@ -1,9 +1,9 @@
 package heyblack.mineds.util.message;
 
-public class AssistantMessage extends AbstractMessage {
+public class OutputMessage extends AbstractMessage {
     private final String reasoning_content;
 
-    public AssistantMessage(String content, String reasoningContent) {
+    public OutputMessage(String content, String reasoningContent) {
         super("assistant", content);
         this.reasoning_content = reasoningContent;
     }

@@ -1,13 +1,23 @@
 package heyblack.mineds.util.result;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
+import heyblack.mineds.initializer.MineDSClient;
+import heyblack.mineds.util.message.InputMessage;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.LiteralText;
+import net.minecraft.util.Formatting;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -16,7 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class ApiResultLogger {
+public class CallResultLogHandler {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
     private static final String PREFIX = "MineDS_";
@@ -27,7 +37,7 @@ public class ApiResultLogger {
 
     public static void log(ApiCallResult result) {
         try {
-            int i = getLastIndex() + 1;
+            int i = getOrCreateIndex() + 1;
 
             String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
             MineDS.LOGGER.info("[MineDS] Logging api call to " + fileName);
@@ -50,15 +60,50 @@ public class ApiResultLogger {
             );
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
+            try {
+                MinecraftClient.getInstance().player.sendMessage(
+                        MineDSClient.getChatPrefix()
+                                .append(new LiteralText("Failed to log API call!").formatted(Formatting.RED)),
+                        false
+                );
+
+            } catch (NullPointerException n) {
+
+            }
         }
     }
 
-    private static int getLastIndex() throws IOException {
-        if (!Files.exists(CACHE_PATH)) {
-            return initializeCacheOnQuery();
+    public static List<InputMessage> getContext() throws Exception {
+        List<InputMessage> list = new ArrayList<>();
+
+        int i = getOrCreateIndex();
+
+        String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
+
+        String logAsString = new String(Files.readAllBytes(MineDS.LOG_PATH.resolve(fileName)), StandardCharsets.UTF_8);
+        JsonObject root = MineDS.GSON.fromJson(logAsString, JsonObject.class);
+
+        JsonObject input = root.getAsJsonObject("input");
+        JsonArray messages = input.getAsJsonArray("messages");
+
+        for (JsonElement element : messages) {
+            JsonObject object = element.getAsJsonObject();
+
+            String roleIn = object.get("role").getAsString();
+            String contentIn = object.get("content").getAsString();
+
+            list.add(new InputMessage(roleIn, contentIn));
         }
 
-        return Integer.parseInt(new String(Files.readAllBytes(CACHE_PATH)));
+        JsonObject output = root.getAsJsonObject("output");
+        JsonObject message = output.getAsJsonArray("message").get(0).getAsJsonObject();
+
+        String roleOut = message.get("role").getAsString();
+        String contentOut = message.get("content").getAsString();
+
+        list.add(new InputMessage(roleOut, contentOut));
+
+        return list;
     }
 
     /*
@@ -66,16 +111,16 @@ public class ApiResultLogger {
         case: index cache doesn't exist
             index = has log file ? prev index : 1
         case: index cache does exist
-            index = read from cache
+            index = read from cache7
      */
-    public static int initializeCacheOnQuery() throws IOException {
+    public static int getOrCreateIndex() throws IOException {
         if (!Files.exists(CACHE_PATH)) {
             int i;
             try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
                 if (files.findAny().isPresent()) {
                     i = findMaxIndex();
                 } else {
-                    i = 1;
+                    i = 0;
                 }
                 Files.write(CACHE_PATH, String.valueOf(i).getBytes());
 

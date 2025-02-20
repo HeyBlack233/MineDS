@@ -3,7 +3,8 @@ package heyblack.mineds.dsapi;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
-import heyblack.mineds.util.message.UserMessage;
+import heyblack.mineds.util.message.InputMessage;
+import heyblack.mineds.util.result.CallResultLogHandler;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -19,13 +20,13 @@ import java.util.Map;
 public class DSApiHandler {
     public interface StreamResponseHandler {
         void onContentChunk(String content, String reasoning_content);
-        void onComplete();
+        void onComplete(String message, boolean pullContentFromLastChat) throws Exception;
         void onError(String error);
     }
-    public static void callApiStreaming(String message, Map<String, String> config, StreamResponseHandler handler) {
+    public static void callApiStreaming(String message, Map<String, String> config, StreamResponseHandler handler, boolean pullContentFromLastChat) {
         MineDS.LOGGER.info("[MineDS] Calling API");
         try {
-            JsonObject requestBody = populateRequestFromUserInput(message, config);
+            JsonObject requestBody = populateRequestBody(message, config, pullContentFromLastChat);
 
             URL url = new URL(config.get(ConfigOption.URL.id));
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -43,7 +44,7 @@ public class DSApiHandler {
             if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
                 MineDS.LOGGER.info("[MineDS] API call success");
                 processStream(connection, handler);
-                handler.onComplete();
+                handler.onComplete(message, pullContentFromLastChat);
             } else {
                 MineDS.LOGGER.warn("[MineDS] API call fail");
                 handler.onError("HTTP错误: " + connection.getResponseCode());
@@ -98,18 +99,24 @@ public class DSApiHandler {
         }
     }
 
-    public static JsonObject populateRequestFromUserInput(String message, Map<String, String> config) {
-        List<UserMessage> messages = new ArrayList<>();
-        messages.add(new UserMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
-        messages.add(new UserMessage("user", message));
+    public static JsonObject populateRequestBody(String message, Map<String, String> config, boolean pullContentFromLastChat) throws Exception {
+        List<InputMessage> messages = new ArrayList<>();
+        if (pullContentFromLastChat) {
+            MineDS.LOGGER.info("[MineDS] Pulling context from last api call result");
+            messages.addAll(CallResultLogHandler.getContext());
+        } else { // system prompt should only be sent when starting new chat
+            messages.add(new InputMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
+        }
 
-        JsonObject body = new JsonObject();
-        body.addProperty("model", config.get(ConfigOption.MODEL.id));
-        body.add("messages", MineDS.GSON.toJsonTree(messages));
-        body.addProperty("temperature", Double.parseDouble(config.get(ConfigOption.TEMPERATURE.id)));
-        body.addProperty("max_tokens", Integer.parseInt(config.get(ConfigOption.MAX_TOKENS.id)));
-        body.addProperty("stream", true);
+        messages.add(new InputMessage("user", message)); // new input message should always be sent
 
-        return body;
+        JsonObject requestBody = new JsonObject();
+        requestBody.addProperty("model", config.get(ConfigOption.MODEL.id));
+        requestBody.add("messages", MineDS.GSON.toJsonTree(messages));
+        requestBody.addProperty("temperature", Double.parseDouble(config.get(ConfigOption.TEMPERATURE.id)));
+        requestBody.addProperty("max_tokens", Integer.parseInt(config.get(ConfigOption.MAX_TOKENS.id)));
+        requestBody.addProperty("stream", true);
+
+        return requestBody;
     }
 }
