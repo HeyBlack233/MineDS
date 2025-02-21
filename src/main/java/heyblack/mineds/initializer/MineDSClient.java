@@ -5,6 +5,7 @@ import com.mojang.brigadier.context.CommandContext;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
+import heyblack.mineds.dsapi.ApiCallType;
 import heyblack.mineds.dsapi.DSApiHandler;
 import heyblack.mineds.util.message.OutputMessage;
 import heyblack.mineds.util.result.ApiCallResult;
@@ -134,7 +135,11 @@ public class MineDSClient implements ClientModInitializer {
         requestExecutor.submit(() -> {
             SentenceSplitter splitter = new SentenceSplitter();
 
-            DSApiHandler.callApiStreaming(message, configManager.getConfig(),
+            DSApiHandler.callApiStreaming(
+                    message,
+                    configManager.getConfig(),
+                    pullContentFromLastChat,
+                    ApiCallType.REGULAR,
                     new DSApiHandler.StreamResponseHandler() {
                         private final StringBuilder outputContent = new StringBuilder();
                         private final StringBuilder outputContentReasoning = new StringBuilder();
@@ -228,8 +233,8 @@ public class MineDSClient implements ClientModInitializer {
                                     false
                             );
                         }
-                    },
-                    pullContentFromLastChat);
+                    }
+            );
         });
 
         return 1;

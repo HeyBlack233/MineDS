@@ -3,7 +3,7 @@ package heyblack.mineds.dsapi;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
-import heyblack.mineds.util.message.InputMessage;
+import heyblack.mineds.util.message.RegularInputMessage;
 import heyblack.mineds.util.result.CallResultLogHandler;
 
 import java.io.BufferedReader;
@@ -23,7 +23,7 @@ public class DSApiHandler {
         void onComplete(String message, boolean pullContentFromLastChat) throws Exception;
         void onError(String error);
     }
-    public static void callApiStreaming(String message, Map<String, String> config, StreamResponseHandler handler, boolean pullContentFromLastChat) {
+    public static void callApiStreaming(String message, Map<String, String> config, boolean pullContentFromLastChat, ApiCallType type, StreamResponseHandler handler) {
         MineDS.LOGGER.info("[MineDS] Calling API");
         try {
             JsonObject requestBody = populateRequestBody(message, config, pullContentFromLastChat);
@@ -100,22 +100,18 @@ public class DSApiHandler {
     }
 
     public static JsonObject populateRequestBody(String message, Map<String, String> config, boolean pullContentFromLastChat) throws Exception {
-        List<InputMessage> messages = new ArrayList<>();
+        List<RegularInputMessage> messages = new ArrayList<>();
         if (pullContentFromLastChat) {
             MineDS.LOGGER.info("[MineDS] Pulling context from last api call result");
             messages.addAll(CallResultLogHandler.getContext());
         } else { // system prompt should only be sent when starting new chat
-            messages.add(new InputMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
+            messages.add(new RegularInputMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
         }
 
-        messages.add(new InputMessage("user", message)); // new input message should always be sent
+        messages.add(new RegularInputMessage("user", message)); // new input message should always be sent
 
-        JsonObject requestBody = new JsonObject();
-        requestBody.addProperty("model", config.get(ConfigOption.MODEL.id));
+        JsonObject requestBody = BaseRequest.populate();
         requestBody.add("messages", MineDS.GSON.toJsonTree(messages));
-        requestBody.addProperty("temperature", Double.parseDouble(config.get(ConfigOption.TEMPERATURE.id)));
-        requestBody.addProperty("max_tokens", Integer.parseInt(config.get(ConfigOption.MAX_TOKENS.id)));
-        requestBody.addProperty("stream", true);
 
         return requestBody;
     }

@@ -5,7 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.initializer.MineDSClient;
-import heyblack.mineds.util.message.InputMessage;
+import heyblack.mineds.util.message.RegularInputMessage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.Formatting;
@@ -73,8 +73,8 @@ public class CallResultLogHandler {
         }
     }
 
-    public static List<InputMessage> getContext() throws Exception {
-        List<InputMessage> list = new ArrayList<>();
+    public static List<RegularInputMessage> getContext() throws Exception {
+        List<RegularInputMessage> list = new ArrayList<>();
 
         int i = getOrCreateIndex();
 
@@ -92,7 +92,7 @@ public class CallResultLogHandler {
             String roleIn = object.get("role").getAsString();
             String contentIn = object.get("content").getAsString();
 
-            list.add(new InputMessage(roleIn, contentIn));
+            list.add(new RegularInputMessage(roleIn, contentIn));
         }
 
         JsonObject output = root.getAsJsonObject("output");
@@ -101,7 +101,7 @@ public class CallResultLogHandler {
         String roleOut = message.get("role").getAsString();
         String contentOut = message.get("content").getAsString();
 
-        list.add(new InputMessage(roleOut, contentOut));
+        list.add(new RegularInputMessage(roleOut, contentOut));
 
         return list;
     }
