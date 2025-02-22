@@ -62,23 +62,6 @@ public class MineDSClient implements ClientModInitializer {
 
         ClientCommandManager.DISPATCHER.register(
                 ClientCommandManager.literal("mineds")
-                        .then(ClientCommandManager.literal("reloadcfg")
-                                .executes(context -> {
-                                    try {
-                                        configManager.loadConfig();
-                                    } catch (IOException e) {
-                                        context.getSource().getPlayer().sendMessage(
-                                                getChatPrefix()
-                                                        .append(
-                                                                new LiteralText("Failed to reload config!")
-                                                                        .formatted(Formatting.WHITE)
-                                                        ),
-                                                false
-                                        );
-                                        MineDS.LOGGER.error("[MineDS] Failed to reload config!" + e);
-                                    }
-                                    return 1;
-                                }))
                         .then(ClientCommandManager.literal("forceshutdown")
                                 .executes(context -> {
                                     context.getSource().getPlayer().sendMessage(
