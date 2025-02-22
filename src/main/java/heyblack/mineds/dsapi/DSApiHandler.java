@@ -3,6 +3,7 @@ package heyblack.mineds.dsapi;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
+import heyblack.mineds.dsapi.response.ResponseHandler;
 import heyblack.mineds.util.message.RegularInputMessage;
 import heyblack.mineds.util.result.CallResultLogHandler;
 
@@ -18,12 +19,13 @@ import java.util.List;
 import java.util.Map;
 
 public class DSApiHandler {
-    public interface StreamResponseHandler {
-        void onContentChunk(String content, String reasoning_content);
-        void onComplete(String message, boolean pullContentFromLastChat) throws Exception;
-        void onError(String error);
-    }
-    public static void callApiStreaming(String message, Map<String, String> config, boolean pullContentFromLastChat, ApiCallType type, StreamResponseHandler handler) {
+    public static void callApiStreaming(
+            String message,
+            Map<String, String> config,
+            boolean pullContentFromLastChat,
+            ApiCallType type,
+            ResponseHandler handler
+    ) {
         MineDS.LOGGER.info("[MineDS] Calling API");
         try {
             JsonObject requestBody = populateRequestBody(message, config, pullContentFromLastChat);
@@ -57,7 +59,7 @@ public class DSApiHandler {
 
     private static void processStream(
             HttpURLConnection connection,
-            StreamResponseHandler handler
+            ResponseHandler handler
     ) throws IOException {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
