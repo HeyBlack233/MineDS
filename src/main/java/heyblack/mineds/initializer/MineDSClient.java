@@ -136,7 +136,7 @@ public class MineDSClient implements ClientModInitializer {
                     configManager.getConfig(),
                     pullContentFromLastChat,
                     ApiCallType.REGULAR,
-                    new RegularResponseHandler(splitter, MinecraftClient.getInstance(), context)
+                    new RegularResponseHandler(splitter, CLIENT, context)
             );
         });
 
