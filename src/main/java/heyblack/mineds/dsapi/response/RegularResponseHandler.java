@@ -23,7 +23,7 @@ import java.util.List;
 public class RegularResponseHandler implements ResponseHandler {
     private final StringBuilder outputContent = new StringBuilder();
     private final StringBuilder outputContentReasoning = new StringBuilder();
-    private JsonObject inputRequest;
+    private final JsonObject inputRequest;
 
     private final ConfigManager  configManager = ConfigManager.getInstance();
     
@@ -31,10 +31,15 @@ public class RegularResponseHandler implements ResponseHandler {
     private final MinecraftClient client;
     private final ClientPlayerEntity player;
     
-    public RegularResponseHandler(SentenceSplitter splitter, MinecraftClient client, CommandContext<FabricClientCommandSource> context) {
+    public RegularResponseHandler(SentenceSplitter splitter,
+                                  MinecraftClient client,
+                                  CommandContext<FabricClientCommandSource> context,
+                                  JsonObject inputRequest
+    ) {
         this.splitter = splitter;
         this.client = client;
         this.player = context.getSource().getPlayer();
+        this.inputRequest = inputRequest;
     }
 
     @Override
@@ -78,12 +83,6 @@ public class RegularResponseHandler implements ResponseHandler {
         ));
 
         outputJson.add("message", MineDS.GSON.toJsonTree(messageOut));
-
-        inputRequest = DSApiHandler.populateRequestBody(
-                message,
-                configManager.getConfig(),
-                pullContentFromLastChat
-        );
 
         CallResultLogHandler.log(new ApiCallResult(
                 inputRequest,

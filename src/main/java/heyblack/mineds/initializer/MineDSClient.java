@@ -131,13 +131,21 @@ public class MineDSClient implements ClientModInitializer {
         requestExecutor.submit(() -> {
             SentenceSplitter splitter = new SentenceSplitter();
 
-            DSApiHandler.callApiStreaming(
-                    message,
-                    configManager.getConfig(),
-                    pullContentFromLastChat,
-                    ApiCallType.REGULAR,
-                    new RegularResponseHandler(splitter, CLIENT, context)
-            );
+            try {
+                DSApiHandler.callApiStreaming(
+                        message,
+                        configManager.getConfig(),
+                        pullContentFromLastChat,
+                        ApiCallType.REGULAR,
+                        new RegularResponseHandler(splitter,
+                                CLIENT,
+                                context,
+                                DSApiHandler.populateRequestBody(message, configManager.getConfig(), pullContentFromLastChat)
+                        )
+                );
+            } catch (Exception e) {
+                MineDS.LOGGER.error("[MineDS] Error: " + e);
+            }
         });
 
         return 1;

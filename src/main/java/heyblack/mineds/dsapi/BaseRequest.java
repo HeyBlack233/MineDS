@@ -13,7 +13,7 @@ public class BaseRequest {
     private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
 
     static {
-        properties.put(CONFIG_MANAGER.get(ConfigOption.MODEL.id), CONFIG_MANAGER.get(ConfigOption.MODEL.id));
+        properties.put("model", CONFIG_MANAGER.get(ConfigOption.MODEL.id));
         properties.put(CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id), CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id));
         properties.put(CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id), CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id));
     }
