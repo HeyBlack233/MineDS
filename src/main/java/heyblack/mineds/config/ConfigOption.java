@@ -9,9 +9,12 @@ public enum ConfigOption {
     MAX_TOKENS("max_tokens", "4096"),
     SYSTEM_MESSAGE("system_message", "你是一只傲娇猫娘"),
 
-    // In-game behaviour settings
+    // In-game general behaviour settings
     MAX_REQUEST("max_request", "1"),
     AI_NAME("ai_name", "DeepSeek"),
+
+    // In-game advancement behaviour settings
+    ADVANCEMENT_CALL("advancement_call", "true"),
     ;
 
     public final String id;

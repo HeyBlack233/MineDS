@@ -1,5 +1,6 @@
 package heyblack.mineds.config;
 
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
@@ -50,16 +51,25 @@ public class ConfigScreen {
         }
 
         {
-            ConfigCategory inGameBehaviour = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour"));
+            ConfigCategory inGameBehaviourGeneral = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour_general"));
 
-            inGameBehaviour.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.ai_name"), CONFIG_MANAGER.get(ConfigOption.AI_NAME.id))
+            inGameBehaviourGeneral.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.ai_name"), CONFIG_MANAGER.get(ConfigOption.AI_NAME.id))
                     .setDefaultValue(ConfigOption.AI_NAME.defaultValue)
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.AI_NAME.id, newValue))
                     .build());
 
-            inGameBehaviour.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_request"), Integer.parseInt(CONFIG_MANAGER.get(ConfigOption.MAX_REQUEST.id)))
+            inGameBehaviourGeneral.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_request"), Integer.parseInt(CONFIG_MANAGER.get(ConfigOption.MAX_REQUEST.id)))
                     .setDefaultValue(Integer.parseInt(ConfigOption.MAX_REQUEST.defaultValue))
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.MAX_REQUEST.id, String.valueOf(newValue)))
+                    .build());
+        }
+
+        {
+            ConfigCategory inGameBehaviourAdvancement = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour_advancement"));
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("mineds.config.option.advancement_call"), Boolean.parseBoolean(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.id)))
+                    .setDefaultValue(Boolean.valueOf(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.defaultValue)))
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_CALL.id, String.valueOf(newValue)))
                     .build());
         }
 
