@@ -33,12 +33,11 @@ public class RegularResponseHandler implements ResponseHandler {
     
     public RegularResponseHandler(SentenceSplitter splitter,
                                   MinecraftClient client,
-                                  CommandContext<FabricClientCommandSource> context,
                                   JsonObject inputRequest
     ) {
         this.splitter = splitter;
         this.client = client;
-        this.player = context.getSource().getPlayer();
+        this.player = client.player;
         this.inputRequest = inputRequest;
     }
 

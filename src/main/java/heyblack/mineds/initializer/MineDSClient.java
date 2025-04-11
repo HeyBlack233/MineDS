@@ -122,7 +122,6 @@ public class MineDSClient implements ClientModInitializer {
                         ApiCallType.REGULAR,
                         new RegularResponseHandler(splitter,
                                 CLIENT,
-                                context,
                                 DSApiHandler.populateRequestBody(message, configManager.getConfig(), pullContentFromLastChat)
                         )
                 );
