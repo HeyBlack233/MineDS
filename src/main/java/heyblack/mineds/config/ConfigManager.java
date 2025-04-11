@@ -30,6 +30,10 @@ public class ConfigManager {
     private Map<String, String> config = new LinkedHashMap<>();
     private boolean changed = false;
 
+    /**
+     * Load config from config file in MineDS.CONFIG_PATH
+     * @throws IOException
+     */
     public void loadConfig() throws IOException {
         // extract this method for implementing config reload
         if (Files.exists(MineDS.CONFIG_PATH)) {
@@ -83,6 +87,11 @@ public class ConfigManager {
         }
     }
 
+    /**
+     * checks the entries and values of the input config and fix it if needed
+     * @param cfgToCheck the config that is going to be fixed by this method
+     * @return whether the cfgToCheck is modified or not
+     */
     private static boolean fixConfig(Map<String, String> cfgToCheck) {
         Map<String, String> checker = new LinkedHashMap<>();
 
