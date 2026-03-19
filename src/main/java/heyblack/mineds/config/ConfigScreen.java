@@ -1,6 +1,5 @@
 package heyblack.mineds.config;
 
-import com.sun.org.apache.xpath.internal.operations.Bool;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
