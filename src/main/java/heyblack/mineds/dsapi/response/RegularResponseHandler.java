@@ -1,17 +1,14 @@
 package heyblack.mineds.dsapi.response;
 
 import com.google.gson.JsonObject;
-import com.mojang.brigadier.context.CommandContext;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
-import heyblack.mineds.dsapi.DSApiHandler;
 import heyblack.mineds.initializer.MineDSClient;
 import heyblack.mineds.util.SentenceSplitter;
 import heyblack.mineds.util.message.OutputMessage;
 import heyblack.mineds.util.result.ApiCallResult;
-import heyblack.mineds.util.result.CallResultLogHandler;
-import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;
+import heyblack.mineds.util.result.ResultLogger;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.text.LiteralText;
@@ -83,7 +80,7 @@ public class RegularResponseHandler implements ResponseHandler {
 
         outputJson.add("message", MineDS.GSON.toJsonTree(messageOut));
 
-        CallResultLogHandler.log(new ApiCallResult(
+        ResultLogger.log(new ApiCallResult(
                 inputRequest,
                 outputJson,
                 true
@@ -92,11 +89,11 @@ public class RegularResponseHandler implements ResponseHandler {
     }
 
     @Override
-    public void onError(String error) {
+    public void onError(JsonObject error) {
         JsonObject errorJson = new JsonObject();
-        errorJson.addProperty("error", error);
+        errorJson.add("error", error);
 
-        CallResultLogHandler.log(new ApiCallResult(
+        ResultLogger.log(new ApiCallResult(
                 inputRequest,
                 errorJson,
                 false

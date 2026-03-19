@@ -7,7 +7,7 @@ import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.ApiCallType;
 import heyblack.mineds.dsapi.DSApiHandler;
 import heyblack.mineds.dsapi.response.RegularResponseHandler;
-import heyblack.mineds.util.result.CallResultLogHandler;
+import heyblack.mineds.util.result.ResultLogger;
 import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
@@ -41,7 +41,7 @@ public class MineDSClient implements ClientModInitializer {
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            CallResultLogHandler.initializeCacheOnStartup();
+            ResultLogger.initializeCacheOnStartup();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);

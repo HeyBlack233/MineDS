@@ -5,7 +5,7 @@ import heyblack.mineds.MineDS;
 import heyblack.mineds.config.ConfigOption;
 import heyblack.mineds.dsapi.response.ResponseHandler;
 import heyblack.mineds.util.message.RegularInputMessage;
-import heyblack.mineds.util.result.CallResultLogHandler;
+import heyblack.mineds.util.result.ResultLogger;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -49,18 +49,17 @@ public class DSApiHandler {
                 handler.onComplete(message, pullContentFromLastChat);
             } else {
                 MineDS.LOGGER.warn("[MineDS] API call fail");
-                handler.onError("HTTP错误: " + connection.getResponseCode());
+                handler.onError(getError(connection));
             }
         } catch (Exception e) {
             MineDS.LOGGER.error("[MineDS] API call error");
-            handler.onError("请求失败: " + e.getMessage());
+            JsonObject jsonObject = new JsonObject();
+            jsonObject.addProperty("error", e.getMessage());
+            handler.onError(jsonObject);
         }
     }
 
-    private static void processStream(
-            HttpURLConnection connection,
-            ResponseHandler handler
-    ) throws IOException {
+    private static void processStream(HttpURLConnection connection, ResponseHandler handler) throws IOException {
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
@@ -76,6 +75,21 @@ public class DSApiHandler {
                     handler.onContentChunk(content, reasoning_content);
                 }
             }
+        }
+    }
+
+    public static JsonObject getError(HttpURLConnection connection) throws IOException {
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8))) {
+
+            StringBuilder jsonData = new StringBuilder();
+            String line;
+
+            while ((line = reader.readLine()) != null) {
+                jsonData.append(line);
+            }
+
+            return MineDS.GSON.fromJson(jsonData.toString(), JsonObject.class);
         }
     }
 
@@ -105,7 +119,7 @@ public class DSApiHandler {
         List<RegularInputMessage> messages = new ArrayList<>();
         if (pullContentFromLastChat) {
             MineDS.LOGGER.info("[MineDS] Pulling context from last api call result");
-            messages.addAll(CallResultLogHandler.getContext());
+            messages.addAll(ResultLogger.getContext());
         } else { // system prompt should only be sent when starting new chat
             messages.add(new RegularInputMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
         }
