@@ -14,8 +14,8 @@ public class BaseRequest {
 
     static {
         properties.put("model", CONFIG_MANAGER.get(ConfigOption.MODEL.id));
-        properties.put(CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id), CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id));
-        properties.put(CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id), CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id));
+        properties.put(ConfigOption.TEMPERATURE.id, CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id));
+        properties.put(ConfigOption.MAX_TOKENS.id, CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id));
     }
 
     public static JsonObject populate() {
