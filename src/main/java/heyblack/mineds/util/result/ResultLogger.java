@@ -26,7 +26,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-public class CallResultLogHandler {
+public class ResultLogger {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
     private static final String PREFIX = "MineDS_";
