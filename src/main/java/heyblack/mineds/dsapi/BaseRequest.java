@@ -4,25 +4,25 @@ import com.google.gson.JsonObject;
 import heyblack.mineds.config.ConfigManager;
 import heyblack.mineds.config.ConfigOption;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 public class BaseRequest {
     private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
 
     public static JsonObject populate() {
-        Map<String, String> properties = new LinkedHashMap<>();
-
-        properties.put("model", CONFIG_MANAGER.get(ConfigOption.MODEL.id));
-        properties.put(ConfigOption.TEMPERATURE.id, CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id));
-        properties.put(ConfigOption.MAX_TOKENS.id, CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id));
-
-
         JsonObject requestBody = new JsonObject();
 
-        for (Map.Entry<String, String> entry : properties.entrySet()) {
-            requestBody.addProperty(entry.getKey(), entry.getValue());
+        requestBody.addProperty("model", CONFIG_MANAGER.get(ConfigOption.MODEL.id));
+
+        try {
+            double temperature = Double.parseDouble(CONFIG_MANAGER.get(ConfigOption.TEMPERATURE.id));
+            int maxTokens = Integer.parseInt(CONFIG_MANAGER.get(ConfigOption.MAX_TOKENS.id));
+
+            requestBody.addProperty("temperature", temperature);
+            requestBody.addProperty("max_tokens", maxTokens);
+        } catch (NumberFormatException e) {
+            requestBody.addProperty("temperature", 0.7);
+            requestBody.addProperty("max_tokens", 4069);
         }
+
         requestBody.addProperty("stream", true);
 
         return requestBody;
