@@ -149,7 +149,8 @@ public class ConfigManager {
      * 检查并修复配置项。此方法会：
      * 1. 添加缺失的配置项
      * 2. 验证数值类型的配置是否有效
-     * 3. 对无效的配置使用默认值修复
+     * 3. 检查配置值是否在有效范围内
+     * 4. 对无效的配置使用默认值修复
      *
      * @param cfgToCheck 需要检查和修复的配置 Map
      * @return 如果配置被修改过则返回 true，否则返回 false
@@ -167,32 +168,43 @@ public class ConfigManager {
             }
         }
 
-        // 验证并修复数值类型的配置
-        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_REQUEST, Integer::parseInt);
-        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_TOKENS, Integer::parseInt);
-        modified |= validateAndFix(cfgToCheck, ConfigOption.TEMPERATURE, Float::parseFloat);
+        // 验证并修复数值类型的配置（包括范围检查）
+        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_REQUEST);
+        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_TOKENS);
+        modified |= validateAndFix(cfgToCheck, ConfigOption.TEMPERATURE);
 
         return modified;
     }
 
     /**
-     * 验证指定配置项的值是否有效，无效则使用默认值修复。
+     * 验证指定配置项的值是否有效（包括类型和范围检查），无效则使用默认值修复。
      *
      * @param cfgToCheck 配置 Map
      * @param option     要验证的配置选项
-     * @param validator  验证函数
      * @return 如果配置被修复则返回 true
      */
-    private static boolean validateAndFix(Map<String, String> cfgToCheck, ConfigOption option,
-            java.util.function.Consumer<String> validator) {
-        try {
-            validator.accept(cfgToCheck.get(option.id));
-            return false;
-        } catch (NullPointerException | NumberFormatException e) {
+    private static boolean validateAndFix(Map<String, String> cfgToCheck, ConfigOption option) {
+        String value = cfgToCheck.get(option.id);
+
+        // 检查类型
+        if (value == null) {
             cfgToCheck.put(option.id, option.defaultValue);
-            MineDS.LOGGER.warn("[MineDS] ConfigManager - Invalid value for " + option.id +
+            MineDS.LOGGER.warn("[MineDS] ConfigManager - Null value for " + option.id +
                     ", replaced with default: " + option.defaultValue);
             return true;
         }
+
+        // 检查数值类型和范围
+        if (option.minValue != null && option.maxValue != null) {
+            if (!option.isValid(value)) {
+                cfgToCheck.put(option.id, option.defaultValue);
+                MineDS.LOGGER.warn("[MineDS] ConfigManager - Out of range or invalid value for " + option.id +
+                        " (value: " + value + ", range: " + option.minValue + "-" + option.maxValue +
+                        "), replaced with default: " + option.defaultValue);
+                return true;
+            }
+        }
+
+        return false;
     }
 }
