@@ -13,6 +13,9 @@ public enum ConfigOption {
     MAX_REQUEST("max_request", "1", 1, 10),
     AI_NAME("ai_name", "DeepSeek", null, null),
 
+    // Log settings
+    MAX_LOG_FILES("max_log_files", "50", 10, 200),
+
     // In-game advancement behaviour settings
     ADVANCEMENT_CALL("advancement_call", "true", null, null),
     ;

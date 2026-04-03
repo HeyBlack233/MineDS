@@ -51,7 +51,7 @@ public class ResultLogger {
             int i = getOrCreateIndex() + 1;
 
             String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
-            MineDS.LOGGER.info("[MineDS] Logging api call to " + fileName);
+            MineDS.LOGGER.info("[MineDS] ResultLogger - Logging api call to " + fileName);
 
             // write log file
             Files.write(
@@ -67,6 +67,9 @@ public class ResultLogger {
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.CREATE);
+
+            // 日志轮转：清理超出数量的旧日志
+            rotateLogs();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
             try {
@@ -196,8 +199,41 @@ public class ResultLogger {
                     .orElse(0), EXECUTOR);
             return future.get();
         } catch (IOException | ExecutionException | InterruptedException e) {
-            MineDS.LOGGER.error("[MineDS] Failed to get index from cache!");
+            MineDS.LOGGER.error("[MineDS] ResultLogger - Failed to get index from cache!");
             return 0;
+        }
+    }
+
+    /**
+     * 日志轮转：删除超出数量限制的旧日志文件。
+     * 保留最近的 N 个日志文件，N 由 max_log_files 配置项决定。
+     */
+    private static void rotateLogs() {
+        try {
+            int maxLogFiles = Integer.parseInt(ConfigManager.getInstance().get(ConfigOption.MAX_LOG_FILES.id));
+
+            List<Path> logFiles = Files.list(MineDS.LOG_PATH)
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .map(PATTERN::matcher)
+                    .filter(Matcher::matches)
+                    .map(m -> MineDS.LOG_PATH.resolve(m.group()))
+                    .sorted(Comparator.comparing(path -> {
+                        String filename = path.getFileName().toString();
+                        return Integer.parseInt(filename.replace(PREFIX, "").replace(SUFFIX, ""));
+                    }))
+                    .collect(java.util.stream.Collectors.toList());
+
+            int toDelete = logFiles.size() - maxLogFiles;
+            if (toDelete > 0) {
+                for (int i = 0; i < toDelete; i++) {
+                    Path fileToDelete = logFiles.get(i);
+                    Files.deleteIfExists(fileToDelete);
+                    MineDS.LOGGER.info("[MineDS] ResultLogger - Rotated old log file: " + fileToDelete.getFileName());
+                }
+            }
+        } catch (IOException e) {
+            MineDS.LOGGER.warn("[MineDS] ResultLogger - Failed to rotate logs", e);
         }
     }
 }
