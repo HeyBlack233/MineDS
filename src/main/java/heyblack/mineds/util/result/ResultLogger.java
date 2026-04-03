@@ -236,4 +236,36 @@ public class ResultLogger {
             MineDS.LOGGER.warn("[MineDS] ResultLogger - Failed to rotate logs", e);
         }
     }
+
+    /**
+     * 清理所有日志文件并重置索引缓存。
+     *
+     * @return 如果清理成功返回 true
+     */
+    public static boolean clearAllLogs() {
+        try {
+            // 删除所有日志文件
+            Files.list(MineDS.LOG_PATH)
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .filter(name -> name.startsWith(PREFIX) && name.endsWith(SUFFIX))
+                    .forEach(name -> {
+                        try {
+                            Files.deleteIfExists(MineDS.LOG_PATH.resolve(name));
+                        } catch (IOException e) {
+                            MineDS.LOGGER.warn("[MineDS] ResultLogger - Failed to delete log file: " + name, e);
+                        }
+                    });
+
+            // 重置索引缓存
+            Files.write(CACHE_PATH, "0".getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
+
+            MineDS.LOGGER.info("[MineDS] ResultLogger - All logs cleared");
+            return true;
+        } catch (IOException e) {
+            MineDS.LOGGER.error("[MineDS] ResultLogger - Failed to clear logs", e);
+            return false;
+        }
+    }
 }

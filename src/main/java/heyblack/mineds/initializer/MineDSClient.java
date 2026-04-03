@@ -118,6 +118,26 @@ public class MineDSClient implements ClientModInitializer {
                                                                                         false);
 
                                                                         return 0;
+                                                                }))
+                                                .then(ClientCommandManager.literal("clearlogs")
+                                                                .executes(context -> {
+                                                                        boolean success = ResultLogger.clearAllLogs();
+                                                                        ClientPlayerEntity player = context.getSource()
+                                                                                        .getPlayer();
+                                                                        if (success) {
+                                                                                player.sendMessage(
+                                                                                                getChatPrefix().append(
+                                                                                                                new LiteralText("All logs cleared successfully")
+                                                                                                                                .formatted(Formatting.GREEN)),
+                                                                                                false);
+                                                                        } else {
+                                                                                player.sendMessage(
+                                                                                                getChatPrefix().append(
+                                                                                                                new LiteralText("Failed to clear logs, check logs")
+                                                                                                                                .formatted(Formatting.RED)),
+                                                                                                false);
+                                                                        }
+                                                                        return success ? 1 : 0;
                                                                 })));
 
                 ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
