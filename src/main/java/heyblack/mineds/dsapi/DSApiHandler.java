@@ -48,8 +48,8 @@ public class DSApiHandler {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
             connection.setRequestMethod("POST");
-            connection.setConnectTimeout(10000); // 10s 连接超时
-            connection.setReadTimeout(30000); // 30s 读取超时
+            connection.setConnectTimeout(10000); // 10s connection timeout
+            connection.setReadTimeout(30000); // 30s read timeout
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + config.get(ConfigOption.API_KEY.id));
             connection.setRequestProperty("Accept", "text/event-stream");

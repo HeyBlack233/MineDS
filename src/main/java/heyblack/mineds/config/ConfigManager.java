@@ -162,7 +162,7 @@ public class ConfigManager {
     private static boolean fixConfig(Map<String, String> cfgToCheck) {
         boolean modified = false;
 
-        // 检查并添加缺失的配置项
+        // check and add missing config options
         for (ConfigOption option : ConfigOption.values()) {
             if (!cfgToCheck.containsKey(option.id)) {
                 cfgToCheck.put(option.id, option.defaultValue);
@@ -172,7 +172,7 @@ public class ConfigManager {
             }
         }
 
-        // 验证并修复数值类型的配置（包括范围检查）
+        // validate and repair numeric config options (including range checks)
         modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_REQUEST);
         modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_TOKENS);
         modified |= validateAndFix(cfgToCheck, ConfigOption.TEMPERATURE);
@@ -191,7 +191,7 @@ public class ConfigManager {
     private static boolean validateAndFix(Map<String, String> cfgToCheck, ConfigOption option) {
         String value = cfgToCheck.get(option.id);
 
-        // 检查类型
+        // check type
         if (value == null) {
             cfgToCheck.put(option.id, option.defaultValue);
             MineDS.LOGGER.warn("[MineDS] ConfigManager - Null value for " + option.id +
@@ -199,7 +199,7 @@ public class ConfigManager {
             return true;
         }
 
-        // 检查数值类型和范围
+        // check numeric type and range
         if (option.minValue != null && option.maxValue != null) {
             if (!option.isValid(value)) {
                 cfgToCheck.put(option.id, option.defaultValue);

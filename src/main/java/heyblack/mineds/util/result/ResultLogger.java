@@ -71,7 +71,7 @@ public class ResultLogger {
                     StandardOpenOption.TRUNCATE_EXISTING,
                     StandardOpenOption.CREATE);
 
-            // 日志轮转：清理超出数量的旧日志
+            // log rotation: clean up old logs exceeding the limit
             rotateLogs();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
@@ -250,7 +250,7 @@ public class ResultLogger {
      */
     public static boolean clearAllLogs() {
         try {
-            // 删除所有日志文件
+            // delete all log files
             Files.list(MineDS.LOG_PATH)
                     .map(Path::getFileName)
                     .map(Path::toString)
@@ -263,7 +263,7 @@ public class ResultLogger {
                         }
                     });
 
-            // 重置索引缓存
+            // reset index cache
             Files.write(CACHE_PATH, "0".getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
 
