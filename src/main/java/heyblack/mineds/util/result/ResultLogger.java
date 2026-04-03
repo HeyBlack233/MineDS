@@ -6,6 +6,7 @@ import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.initializer.MineDSClient;
 import heyblack.mineds.util.message.RegularInputMessage;
+import heyblack.mineds.config.*;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.Formatting;
