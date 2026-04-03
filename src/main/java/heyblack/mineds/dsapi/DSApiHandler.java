@@ -106,13 +106,19 @@ public class DSApiHandler {
 
     private static String extractDeltaContentReasoning(JsonObject response) {
         try {
-            return response.getAsJsonArray("choices")
+            JsonObject delta = response.getAsJsonArray("choices")
                     .get(0).getAsJsonObject()
-                    .getAsJsonObject("delta")
-                    .get("reasoning_content").getAsString();
+                    .getAsJsonObject("delta");
+
+            if (delta.has("reasoning_content")) {
+                return delta.get("reasoning_content").getAsString();
+            } else if (delta.has("reasoning")) {
+                return delta.get("reasoning").getAsString();
+            }
         } catch (Exception e) {
-            return "";
+
         }
+        return "";
     }
 
     public static JsonObject populateRequestBody(String message, Map<String, String> config, boolean pullContentFromLastChat) throws Exception {
