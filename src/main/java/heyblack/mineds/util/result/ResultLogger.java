@@ -26,6 +26,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+/**
+ * API 调用结果日志记录器。
+ * 负责将 API 调用结果保存到文件并提供上下文恢复功能。
+ * 日志文件命名格式为 MineDS_<index>.json，并使用 .index 文件跟踪当前索引。
+ */
 public class ResultLogger {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
@@ -35,6 +40,12 @@ public class ResultLogger {
 
     private static final Path CACHE_PATH = MineDS.LOG_PATH.resolve(".index");
 
+    /**
+     * 记录 API 调用结果到文件。
+     * 自动递增索引并更新缓存文件。
+     *
+     * @param result 要记录的 API 调用结果
+     */
     public static void log(ApiCallResult result) {
         try {
             int i = getOrCreateIndex() + 1;
@@ -70,6 +81,13 @@ public class ResultLogger {
         }
     }
 
+    /**
+     * 从最近的 API 调用日志中获取对话上下文。
+     * 用于继续上次对话时恢复历史消息。
+     *
+     * @return 对话消息列表
+     * @throws Exception 如果读取或解析日志失败
+     */
     public static List<RegularInputMessage> getContext() throws Exception {
         List<RegularInputMessage> list = new ArrayList<>();
 
@@ -110,6 +128,13 @@ public class ResultLogger {
      * case: index cache does exist
      * index = read from cache7
      */
+    /**
+     * 获取或创建日志索引。
+     * 如果缓存文件存在则从中读取，否则扫描日志目录获取最大索引。
+     *
+     * @return 当前日志索引
+     * @throws IOException 如果读写缓存文件失败
+     */
     public static int getOrCreateIndex() throws IOException {
         if (!Files.exists(CACHE_PATH)) {
             int i;
@@ -128,12 +153,11 @@ public class ResultLogger {
         }
     }
 
-    /*
-     * case: mod initializes
-     * case: index cache doesn't exist
-     * index = has log file ? prev index : 1
-     * case: index cache does exist
-     * index = has log file ? prev index : 1
+    /**
+     * 在模组启动时初始化索引缓存。
+     * 无论缓存是否存在，都会扫描日志目录确保索引正确。
+     *
+     * @throws IOException 如果读写缓存文件失败
      */
     public static void initializeCacheOnStartup() throws IOException {
         int i = 0;

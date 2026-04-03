@@ -13,16 +13,32 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * 配置管理器，负责加载、保存和验证模组配置。
+ * 使用单例模式确保全局唯一实例。
+ * 配置以 JSON 格式存储在 {@link MineDS#CONFIG_PATH}。
+ */
 public class ConfigManager {
+    /**
+     * 获取配置管理器单例实例
+     * 
+     * @return ConfigManager 实例
+     */
     public static ConfigManager getInstance() {
         return INSTANCE;
     }
+
     private static final ConfigManager INSTANCE = new ConfigManager();
+
+    /**
+     * 私有构造函数，防止外部实例化
+     * 在构造时自动加载配置
+     */
     private ConfigManager() {
         try {
             loadConfig();
         } catch (IOException e) {
-            MineDS.LOGGER.error("[MineDS] Failed to load config!");
+            MineDS.LOGGER.error("[MineDS] ConfigManager - Failed to load config!", e);
             throw new RuntimeException(e);
         }
     }
@@ -31,16 +47,18 @@ public class ConfigManager {
     private boolean changed = false;
 
     /**
-     * Load config from config file in MineDS.CONFIG_PATH
-     * @throws IOException
+     * 从配置文件加载配置。如果文件不存在则创建默认配置。
+     * 加载后会自动验证配置完整性并修复缺失或无效的选项。
+     *
+     * @throws IOException 如果读取或写入配置文件失败
      */
     public void loadConfig() throws IOException {
         // extract this method for implementing config reload
         if (Files.exists(MineDS.CONFIG_PATH)) {
             try (Reader reader = new InputStreamReader(
-                    new FileInputStream(MineDS.CONFIG_PATH.toFile()), StandardCharsets.UTF_8
-            )) {
-                config = MineDS.GSON.fromJson(reader, new TypeToken<Map<String, String>>() {}.getType());
+                    new FileInputStream(MineDS.CONFIG_PATH.toFile()), StandardCharsets.UTF_8)) {
+                config = MineDS.GSON.fromJson(reader, new TypeToken<Map<String, String>>() {
+                }.getType());
             }
 
             if (fixConfig(config)) {
@@ -55,19 +73,41 @@ public class ConfigManager {
         MineDS.LOGGER.info("[MineDS] Config loaded");
     }
 
+    /**
+     * 获取配置的副本。修改返回的 Map 不会影响内部配置。
+     *
+     * @return 配置 Map 的副本
+     */
     public Map<String, String> getConfig() {
         return new HashMap<>(config);
     }
 
+    /**
+     * 获取指定键的配置值
+     *
+     * @param key 配置项的 ID
+     * @return 配置值，如果键不存在则返回 null
+     */
     public String get(String key) {
         return config.get(key);
     }
 
+    /**
+     * 设置配置项的值。此操作会标记配置为已修改，
+     * 需要在适当时机调用 {@link #saveConfig()} 保存。
+     *
+     * @param key   配置项的 ID
+     * @param value 新的配置值
+     */
     public void setConfig(String key, String value) {
         config.put(key, value);
         changed = true;
     }
 
+    /**
+     * 保存配置到文件。仅当配置被修改过时才执行保存操作。
+     * 保存时会进行 3 次重试，如果都失败则放弃保存并记录错误日志。
+     */
     public void saveConfig() {
         if (changed) {
             int maxRetry = 3;
@@ -83,14 +123,19 @@ public class ConfigManager {
                     MineDS.LOGGER.error("[MineDS] Failed to save config! " + retry + "/" + maxRetry);
                 }
             }
-            MineDS.LOGGER.error(String.format("[MineDS] Failed to save config after %d retries! Closing without save config!", maxRetry));
+            MineDS.LOGGER.error(String
+                    .format("[MineDS] Failed to save config after %d retries! Closing without save config!", maxRetry));
         }
     }
 
     /**
-     * checks the entries and values of the input config and fix it if needed
-     * @param cfgToCheck the config that is going to be fixed by this method
-     * @return whether the cfgToCheck is modified or not
+     * 检查并修复配置项。此方法会：
+     * 1. 添加缺失的配置项
+     * 2. 验证数值类型的配置是否有效
+     * 3. 对无效的配置使用默认值修复
+     *
+     * @param cfgToCheck 需要检查和修复的配置 Map
+     * @return 如果配置被修改过则返回 true，否则返回 false
      */
     private static boolean fixConfig(Map<String, String> cfgToCheck) {
         Map<String, String> checker = new LinkedHashMap<>();
