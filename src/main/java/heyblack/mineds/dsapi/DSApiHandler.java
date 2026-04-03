@@ -25,7 +25,7 @@ public class DSApiHandler {
             boolean pullContentFromLastChat,
             ApiCallType type,
             ResponseHandler handler) {
-        MineDS.LOGGER.info("[MineDS] Calling API");
+        MineDS.LOGGER.info("[MineDS] DSApi - Calling API");
         try {
             JsonObject requestBody = populateRequestBody(message, config, pullContentFromLastChat);
 
@@ -33,6 +33,8 @@ public class DSApiHandler {
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
             connection.setRequestMethod("POST");
+            connection.setConnectTimeout(10000); // 10s 连接超时
+            connection.setReadTimeout(30000); // 30s 读取超时
             connection.setRequestProperty("Content-Type", "application/json");
             connection.setRequestProperty("Authorization", "Bearer " + config.get(ConfigOption.API_KEY.id));
             connection.setRequestProperty("Accept", "text/event-stream");
@@ -43,15 +45,15 @@ public class DSApiHandler {
             }
 
             if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-                MineDS.LOGGER.info("[MineDS] API call success");
+                MineDS.LOGGER.info("[MineDS] DSApi - API call success");
                 processStream(connection, handler);
                 handler.onComplete(message, pullContentFromLastChat);
             } else {
-                MineDS.LOGGER.warn("[MineDS] API call fail");
+                MineDS.LOGGER.warn("[MineDS] DSApi - API call failed with code: " + connection.getResponseCode());
                 handler.onError(getError(connection));
             }
         } catch (Exception e) {
-            MineDS.LOGGER.error("[MineDS] API call error");
+            MineDS.LOGGER.error("[MineDS] DSApi - API call error: " + e.getMessage(), e);
             JsonObject jsonObject = new JsonObject();
             jsonObject.addProperty("error", e.getMessage());
             handler.onError(jsonObject);
@@ -125,7 +127,7 @@ public class DSApiHandler {
             boolean pullContentFromLastChat) throws Exception {
         List<RegularInputMessage> messages = new ArrayList<>();
         if (pullContentFromLastChat) {
-            MineDS.LOGGER.info("[MineDS] Pulling context from last api call result");
+            MineDS.LOGGER.info("[MineDS] DSApi - Pulling context from last api call result");
             messages.addAll(ResultLogger.getContext());
         } else { // system prompt should only be sent when starting new chat
             messages.add(new RegularInputMessage("system", config.get(ConfigOption.SYSTEM_MESSAGE.id)));
