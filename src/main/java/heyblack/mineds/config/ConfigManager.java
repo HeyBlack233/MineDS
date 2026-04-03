@@ -121,11 +121,27 @@ public class ConfigManager {
                     return;
                 } catch (IOException e) {
                     retry++;
-                    MineDS.LOGGER.error("[MineDS] Failed to save config! " + retry + "/" + maxRetry);
+                    MineDS.LOGGER.error("[MineDS] ConfigManager - Failed to save config! " + retry + "/" + maxRetry);
                 }
             }
             MineDS.LOGGER.error(String
-                    .format("[MineDS] Failed to save config after %d retries! Closing without save config!", maxRetry));
+                    .format("[MineDS] ConfigManager - Failed to save config after %d retries! Closing without save config!",
+                            maxRetry));
+        }
+    }
+
+    /**
+     * 重新加载配置。从配置文件重新读取配置并验证。
+     *
+     * @return 如果加载成功返回 true，否则返回 false
+     */
+    public boolean reloadConfig() {
+        try {
+            loadConfig();
+            return true;
+        } catch (IOException e) {
+            MineDS.LOGGER.error("[MineDS] ConfigManager - Failed to reload config!", e);
+            return false;
         }
     }
 
