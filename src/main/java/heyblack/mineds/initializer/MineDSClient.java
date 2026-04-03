@@ -24,6 +24,7 @@ import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static com.mojang.brigadier.arguments.StringArgumentType.getString;
 import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
@@ -120,7 +121,20 @@ public class MineDSClient implements ClientModInitializer {
                                                                 })));
 
                 ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+                        MineDS.LOGGER.info("[MineDS] MineDSClient - Shutting down executor gracefully...");
                         requestExecutor.shutdown();
+                        try {
+                                if (!requestExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                                        MineDS.LOGGER.warn(
+                                                        "[MineDS] MineDSClient - Executor did not terminate within 10s, forcing shutdown");
+                                        requestExecutor.shutdownNow();
+                                }
+                        } catch (InterruptedException e) {
+                                MineDS.LOGGER.error(
+                                                "[MineDS] MineDSClient - Interrupted while waiting for executor to shutdown");
+                                requestExecutor.shutdownNow();
+                                Thread.currentThread().interrupt();
+                        }
                 });
 
                 ServerLifecycleEvents.SERVER_STOPPED.register(server -> {
