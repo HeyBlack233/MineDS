@@ -31,10 +31,23 @@ import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 public class MineDSClient implements ClientModInitializer {
         private static final ConfigManager configManager = ConfigManager.getInstance();
 
-        private static final ExecutorService requestExecutor = Executors.newFixedThreadPool(
+        private static ExecutorService requestExecutor = Executors.newFixedThreadPool(
                         Integer.parseInt((configManager.get(ConfigOption.MAX_REQUEST.id))));
 
         private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
+
+        /**
+         * 获取或重新创建请求执行器。
+         * 如果执行器已关闭，则自动重新创建。
+         */
+        private static synchronized ExecutorService getExecutor() {
+                if (requestExecutor.isShutdown() || requestExecutor.isTerminated()) {
+                        int poolSize = Integer.parseInt(configManager.get(ConfigOption.MAX_REQUEST.id));
+                        MineDS.LOGGER.info("[MineDS] MineDSClient - Recreating executor with pool size: " + poolSize);
+                        requestExecutor = Executors.newFixedThreadPool(poolSize);
+                }
+                return requestExecutor;
+        }
 
         @Override
         public void onInitializeClient() {
@@ -128,7 +141,7 @@ public class MineDSClient implements ClientModInitializer {
                                                                 .formatted(Formatting.WHITE)),
                                 false);
 
-                requestExecutor.submit(() -> {
+                getExecutor().submit(() -> {
                         SentenceSplitter splitter = new SentenceSplitter();
 
                         try {
