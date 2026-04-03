@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * 配置管理器，负责加载、保存和验证模组配置。
@@ -138,54 +139,44 @@ public class ConfigManager {
      * @return 如果配置被修改过则返回 true，否则返回 false
      */
     private static boolean fixConfig(Map<String, String> cfgToCheck) {
-        Map<String, String> checker = new LinkedHashMap<>();
+        boolean modified = false;
 
+        // 检查并添加缺失的配置项
         for (ConfigOption option : ConfigOption.values()) {
-            checker.put(option.id, option.defaultValue);
-        }
-
-        boolean bl = false;
-
-        for (Map.Entry<String, String> checkerEntry : checker.entrySet()) {
-            if (!cfgToCheck.containsKey(checkerEntry.getKey())) {
-                cfgToCheck.put(checkerEntry.getKey(), checkerEntry.getValue());
-                MineDS.LOGGER.warn("[MineDS] Missing config option: " +
-                        checkerEntry.getKey() + ", added with default value: " + checkerEntry.getValue());
-
-                bl = true;
+            if (!cfgToCheck.containsKey(option.id)) {
+                cfgToCheck.put(option.id, option.defaultValue);
+                MineDS.LOGGER.warn("[MineDS] ConfigManager - Missing config option: " + option.id +
+                        ", added with default value: " + option.defaultValue);
+                modified = true;
             }
         }
 
+        // 验证并修复数值类型的配置
+        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_REQUEST, Integer::parseInt);
+        modified |= validateAndFix(cfgToCheck, ConfigOption.MAX_TOKENS, Integer::parseInt);
+        modified |= validateAndFix(cfgToCheck, ConfigOption.TEMPERATURE, Float::parseFloat);
+
+        return modified;
+    }
+
+    /**
+     * 验证指定配置项的值是否有效，无效则使用默认值修复。
+     *
+     * @param cfgToCheck 配置 Map
+     * @param option     要验证的配置选项
+     * @param validator  验证函数
+     * @return 如果配置被修复则返回 true
+     */
+    private static boolean validateAndFix(Map<String, String> cfgToCheck, ConfigOption option,
+            java.util.function.Consumer<String> validator) {
         try {
-            Integer.parseInt(cfgToCheck.get(ConfigOption.MAX_REQUEST.id));
+            validator.accept(cfgToCheck.get(option.id));
+            return false;
         } catch (NullPointerException | NumberFormatException e) {
-            cfgToCheck.put(ConfigOption.MAX_REQUEST.id, ConfigOption.MAX_REQUEST.defaultValue);
-            MineDS.LOGGER.warn("[MineDS] Invalid value found for config option " + ConfigOption.MAX_REQUEST.id +
-                    ". replaced with default value " + ConfigOption.MAX_REQUEST.defaultValue);
-
-            bl = true;
+            cfgToCheck.put(option.id, option.defaultValue);
+            MineDS.LOGGER.warn("[MineDS] ConfigManager - Invalid value for " + option.id +
+                    ", replaced with default: " + option.defaultValue);
+            return true;
         }
-
-        try {
-            Integer.parseInt(cfgToCheck.get(ConfigOption.MAX_TOKENS.id));
-        } catch (NullPointerException | NumberFormatException e) {
-            cfgToCheck.put(ConfigOption.MAX_TOKENS.id, ConfigOption.MAX_TOKENS.defaultValue);
-            MineDS.LOGGER.warn("[MineDS] Invalid value found for config option " + ConfigOption.MAX_TOKENS.id +
-                    ". replaced with default value " + ConfigOption.MAX_TOKENS.defaultValue);
-
-            bl = true;
-        }
-
-        try {
-            Float.parseFloat(cfgToCheck.get(ConfigOption.TEMPERATURE.id));
-        } catch (NullPointerException | NumberFormatException e) {
-            cfgToCheck.put(ConfigOption.TEMPERATURE.id, ConfigOption.TEMPERATURE.defaultValue);
-            MineDS.LOGGER.warn("[MineDS] Invalid value found for config option " + ConfigOption.TEMPERATURE.id +
-                    ". replaced with default value " + ConfigOption.TEMPERATURE.defaultValue);
-
-            bl = true;
-        }
-
-        return bl;
     }
 }
