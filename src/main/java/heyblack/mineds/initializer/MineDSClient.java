@@ -33,13 +33,15 @@ public class MineDSClient implements ClientModInitializer {
         private static final ConfigManager configManager = ConfigManager.getInstance();
 
         private static ExecutorService requestExecutor = Executors.newFixedThreadPool(
-                        Integer.parseInt((configManager.get(ConfigOption.MAX_REQUEST.id))));
+                        Integer.parseInt(configManager.get(ConfigOption.MAX_REQUEST.id)));
 
         private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
 
         /**
-         * 获取或重新创建请求执行器。
-         * 如果执行器已关闭，则自动重新创建。
+         * Gets or recreates the request executor.
+         * Automatically recreates if the executor has been shut down.
+         *
+         * @return the request executor
          */
         private static synchronized ExecutorService getExecutor() {
                 if (requestExecutor.isShutdown() || requestExecutor.isTerminated()) {
@@ -56,89 +58,34 @@ public class MineDSClient implements ClientModInitializer {
                         Files.createDirectories(MineDS.LOG_PATH);
                         ResultLogger.initializeCacheOnStartup();
                 } catch (IOException e) {
-                        MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
+                        MineDS.LOGGER.error("[MineDS] MineDSClient - Failed to create log dir!", e);
                         throw new RuntimeException(e);
                 }
 
+                // register /ds command
                 ClientCommandManager.DISPATCHER.register(
                                 ClientCommandManager.literal("ds")
                                                 .then(ClientCommandManager.argument("message", greedyString())
                                                                 .executes(context -> callApiOnCommand(context,
                                                                                 false))));
 
+                // register /dsc command
                 ClientCommandManager.DISPATCHER.register(
                                 ClientCommandManager.literal("dsc")
                                                 .then(ClientCommandManager.argument("message", greedyString())
                                                                 .executes(context -> callApiOnCommand(context, true))));
 
+                // register /mineds command with subcommands
                 ClientCommandManager.DISPATCHER.register(
                                 ClientCommandManager.literal("mineds")
                                                 .then(ClientCommandManager.literal("reload")
-                                                                .executes(context -> {
-                                                                        boolean success = configManager.reloadConfig();
-                                                                        ClientPlayerEntity player = context.getSource()
-                                                                                        .getPlayer();
-                                                                        if (success) {
-                                                                                player.sendMessage(
-                                                                                                getChatPrefix().append(
-                                                                                                                new LiteralText("Config reloaded successfully")
-                                                                                                                                .formatted(Formatting.GREEN)),
-                                                                                                false);
-                                                                        } else {
-                                                                                player.sendMessage(
-                                                                                                getChatPrefix().append(
-                                                                                                                new LiteralText("Failed to reload config, check logs")
-                                                                                                                                .formatted(Formatting.RED)),
-                                                                                                false);
-                                                                        }
-                                                                        return success ? 1 : 0;
-                                                                }))
+                                                                .executes(this::reloadConfig))
                                                 .then(ClientCommandManager.literal("forceshutdown")
-                                                                .executes(context -> {
-                                                                        context.getSource().getPlayer().sendMessage(
-                                                                                        getChatPrefix()
-                                                                                                        .append(
-                                                                                                                        new LiteralText("Shutting down all request executor threads")),
-                                                                                        false);
-                                                                        requestExecutor.shutdown();
-                                                                        return 1;
-                                                                }))
+                                                                .executes(this::forceShutdown))
                                                 .then(ClientCommandManager.literal("info")
-                                                                .executes(context -> {
-                                                                        context.getSource().getPlayer().sendMessage(
-                                                                                        getChatPrefix().append(
-                                                                                                        new LiteralText("Active thread count: "
-                                                                                                                        +
-                                                                                                                        ((ThreadPoolExecutor) requestExecutor)
-                                                                                                                                        .getActiveCount()
-                                                                                                                        +
-                                                                                                                        ". Max count: "
-                                                                                                                        + configManager.get(
-                                                                                                                                        ConfigOption.MAX_REQUEST.id))),
-                                                                                        false);
-
-                                                                        return 0;
-                                                                }))
+                                                                .executes(this::showInfo))
                                                 .then(ClientCommandManager.literal("clearlogs")
-                                                                .executes(context -> {
-                                                                        boolean success = ResultLogger.clearAllLogs();
-                                                                        ClientPlayerEntity player = context.getSource()
-                                                                                        .getPlayer();
-                                                                        if (success) {
-                                                                                player.sendMessage(
-                                                                                                getChatPrefix().append(
-                                                                                                                new LiteralText("All logs cleared successfully")
-                                                                                                                                .formatted(Formatting.GREEN)),
-                                                                                                false);
-                                                                        } else {
-                                                                                player.sendMessage(
-                                                                                                getChatPrefix().append(
-                                                                                                                new LiteralText("Failed to clear logs, check logs")
-                                                                                                                                .formatted(Formatting.RED)),
-                                                                                                false);
-                                                                        }
-                                                                        return success ? 1 : 0;
-                                                                })));
+                                                                .executes(this::clearLogs)));
 
                 ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
                         MineDS.LOGGER.info("[MineDS] MineDSClient - Shutting down executor gracefully...");
@@ -151,7 +98,7 @@ public class MineDSClient implements ClientModInitializer {
                                 }
                         } catch (InterruptedException e) {
                                 MineDS.LOGGER.error(
-                                                "[MineDS] MineDSClient - Interrupted while waiting for executor to shutdown");
+                                                "[MineDS] MineDSClient - Interrupted while waiting for executor shutdown");
                                 requestExecutor.shutdownNow();
                                 Thread.currentThread().interrupt();
                         }
@@ -162,6 +109,61 @@ public class MineDSClient implements ClientModInitializer {
                 });
         }
 
+        private int reloadConfig(CommandContext<FabricClientCommandSource> context) {
+                boolean success = configManager.reloadConfig();
+                ClientPlayerEntity player = context.getSource().getPlayer();
+                if (success) {
+                        player.sendMessage(getChatPrefix().append(
+                                        new LiteralText("Config reloaded successfully").formatted(Formatting.GREEN)),
+                                        false);
+                } else {
+                        player.sendMessage(getChatPrefix().append(new LiteralText("Failed to reload config, check logs")
+                                        .formatted(Formatting.RED)), false);
+                }
+                return success ? 1 : 0;
+        }
+
+        private int forceShutdown(CommandContext<FabricClientCommandSource> context) {
+                ClientPlayerEntity player = context.getSource().getPlayer();
+                player.sendMessage(
+                                getChatPrefix().append(new LiteralText("Shutting down all request executor threads")),
+                                false);
+                requestExecutor.shutdown();
+                return 1;
+        }
+
+        private int showInfo(CommandContext<FabricClientCommandSource> context) {
+                ClientPlayerEntity player = context.getSource().getPlayer();
+                player.sendMessage(getChatPrefix().append(
+                                new LiteralText("Active thread count: " +
+                                                ((ThreadPoolExecutor) requestExecutor).getActiveCount() +
+                                                ". Max count: " + configManager.get(ConfigOption.MAX_REQUEST.id))),
+                                false);
+                return 0;
+        }
+
+        private int clearLogs(CommandContext<FabricClientCommandSource> context) {
+                boolean success = ResultLogger.clearAllLogs();
+                ClientPlayerEntity player = context.getSource().getPlayer();
+                if (success) {
+                        player.sendMessage(getChatPrefix().append(
+                                        new LiteralText("All logs cleared successfully").formatted(Formatting.GREEN)),
+                                        false);
+                } else {
+                        player.sendMessage(getChatPrefix().append(
+                                        new LiteralText("Failed to clear logs, check logs").formatted(Formatting.RED)),
+                                        false);
+                }
+                return success ? 1 : 0;
+        }
+
+        /**
+         * Handles the /ds and /dsc command execution.
+         *
+         * @param context                 the command context
+         * @param pullContentFromLastChat whether to restore context from last chat log
+         * @return command success code
+         */
         public static int callApiOnCommand(CommandContext<FabricClientCommandSource> context,
                         boolean pullContentFromLastChat) {
                 String message = getString(context, "message");
@@ -190,13 +192,18 @@ public class MineDSClient implements ClientModInitializer {
                                                                                 configManager.getConfig(),
                                                                                 pullContentFromLastChat)));
                         } catch (Exception e) {
-                                MineDS.LOGGER.error("[MineDS] Error: " + e);
+                                MineDS.LOGGER.error("[MineDS] MineDSClient - API call error: " + e.getMessage(), e);
                         }
                 });
 
                 return 1;
         }
 
+        /**
+         * Gets the chat prefix for MineDS messages.
+         *
+         * @return the formatted chat prefix
+         */
         public static MutableText getChatPrefix() {
                 return new LiteralText("[MineDS] ").formatted(Formatting.GRAY);
         }
