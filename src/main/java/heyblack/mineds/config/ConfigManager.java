@@ -15,15 +15,16 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 /**
- * 配置管理器，负责加载、保存和验证模组配置。
- * 使用单例模式确保全局唯一实例。
- * 配置以 JSON 格式存储在 {@link MineDS#CONFIG_PATH}。
+ * Configuration manager responsible for loading, saving, and validating mod
+ * configuration.
+ * Uses singleton pattern to ensure a single global instance.
+ * Configuration is stored in JSON format at {@link MineDS#CONFIG_PATH}.
  */
 public class ConfigManager {
     /**
-     * 获取配置管理器单例实例
-     * 
-     * @return ConfigManager 实例
+     * Gets the singleton instance of the configuration manager.
+     *
+     * @return ConfigManager instance
      */
     public static ConfigManager getInstance() {
         return INSTANCE;
@@ -32,8 +33,8 @@ public class ConfigManager {
     private static final ConfigManager INSTANCE = new ConfigManager();
 
     /**
-     * 私有构造函数，防止外部实例化
-     * 在构造时自动加载配置
+     * Private constructor to prevent external instantiation.
+     * Automatically loads configuration during construction.
      */
     private ConfigManager() {
         try {
@@ -48,10 +49,11 @@ public class ConfigManager {
     private boolean changed = false;
 
     /**
-     * 从配置文件加载配置。如果文件不存在则创建默认配置。
-     * 加载后会自动验证配置完整性并修复缺失或无效的选项。
+     * Loads configuration from the config file. Creates default config if file
+     * doesn't exist.
+     * Automatically validates and repairs missing or invalid options after loading.
      *
-     * @throws IOException 如果读取或写入配置文件失败
+     * @throws IOException if reading or writing the config file fails
      */
     public void loadConfig() throws IOException {
         // extract this method for implementing config reload
@@ -75,30 +77,32 @@ public class ConfigManager {
     }
 
     /**
-     * 获取配置的副本。修改返回的 Map 不会影响内部配置。
+     * Gets a copy of the configuration. Modifying the returned Map does not affect
+     * internal config.
      *
-     * @return 配置 Map 的副本
+     * @return a copy of the configuration Map
      */
     public Map<String, String> getConfig() {
         return new HashMap<>(config);
     }
 
     /**
-     * 获取指定键的配置值
+     * Gets the configuration value for the specified key.
      *
-     * @param key 配置项的 ID
-     * @return 配置值，如果键不存在则返回 null
+     * @param key the config option ID
+     * @return the config value, or null if key doesn't exist
      */
     public String get(String key) {
         return config.get(key);
     }
 
     /**
-     * 设置配置项的值。此操作会标记配置为已修改，
-     * 需要在适当时机调用 {@link #saveConfig()} 保存。
+     * Sets the value of a config option. This marks the config as modified,
+     * and {@link #saveConfig()} should be called at an appropriate time to persist
+     * changes.
      *
-     * @param key   配置项的 ID
-     * @param value 新的配置值
+     * @param key   the config option ID
+     * @param value the new config value
      */
     public void setConfig(String key, String value) {
         config.put(key, value);
@@ -106,8 +110,8 @@ public class ConfigManager {
     }
 
     /**
-     * 保存配置到文件。仅当配置被修改过时才执行保存操作。
-     * 保存时会进行 3 次重试，如果都失败则放弃保存并记录错误日志。
+     * Saves configuration to file. Only saves if configuration has been modified.
+     * Retries up to 3 times before giving up and logging an error.
      */
     public void saveConfig() {
         if (changed) {
@@ -131,9 +135,9 @@ public class ConfigManager {
     }
 
     /**
-     * 重新加载配置。从配置文件重新读取配置并验证。
+     * Reloads configuration from file. Re-reads and validates the config.
      *
-     * @return 如果加载成功返回 true，否则返回 false
+     * @return true if reload succeeded, false otherwise
      */
     public boolean reloadConfig() {
         try {
@@ -146,14 +150,14 @@ public class ConfigManager {
     }
 
     /**
-     * 检查并修复配置项。此方法会：
-     * 1. 添加缺失的配置项
-     * 2. 验证数值类型的配置是否有效
-     * 3. 检查配置值是否在有效范围内
-     * 4. 对无效的配置使用默认值修复
+     * Checks and repairs configuration options. This method:
+     * 1. Adds missing config options
+     * 2. Validates numeric config values
+     * 3. Checks config values are within valid ranges
+     * 4. Repairs invalid values with defaults
      *
-     * @param cfgToCheck 需要检查和修复的配置 Map
-     * @return 如果配置被修改过则返回 true，否则返回 false
+     * @param cfgToCheck the config Map to check and repair
+     * @return true if config was modified, false otherwise
      */
     private static boolean fixConfig(Map<String, String> cfgToCheck) {
         boolean modified = false;
@@ -177,11 +181,12 @@ public class ConfigManager {
     }
 
     /**
-     * 验证指定配置项的值是否有效（包括类型和范围检查），无效则使用默认值修复。
+     * Validates a config option's value (including type and range checks), repairs
+     * with default if invalid.
      *
-     * @param cfgToCheck 配置 Map
-     * @param option     要验证的配置选项
-     * @return 如果配置被修复则返回 true
+     * @param cfgToCheck the config Map
+     * @param option     the config option to validate
+     * @return true if config was repaired, false otherwise
      */
     private static boolean validateAndFix(Map<String, String> cfgToCheck, ConfigOption option) {
         String value = cfgToCheck.get(option.id);

@@ -19,19 +19,20 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * DeepSeek API 调用处理器。
- * 负责构建请求、调用 API、处理流式响应和错误。
- * 支持 SiliconFlow 等兼容 OpenAI 格式的 API。
+ * DeepSeek API call handler.
+ * Responsible for building requests, calling the API, processing streaming
+ * responses, and handling errors.
+ * Supports SiliconFlow and other OpenAI-compatible APIs.
  */
 public class DSApiHandler {
     /**
-     * 调用 DeepSeek API 进行流式对话。
+     * Calls the DeepSeek API for streaming chat completion.
      *
-     * @param message                 用户输入的消息
-     * @param config                  当前配置 Map
-     * @param pullContentFromLastChat 是否从上次对话日志中恢复上下文
-     * @param type                    API 调用类型
-     * @param handler                 响应处理器
+     * @param message                 user input message
+     * @param config                  current configuration Map
+     * @param pullContentFromLastChat whether to restore context from last chat log
+     * @param type                    API call type
+     * @param handler                 response handler
      */
     public static void callApiStreaming(
             String message,
@@ -138,14 +139,15 @@ public class DSApiHandler {
     }
 
     /**
-     * 构建 API 请求体。
-     * 根据是否恢复上下文决定是否包含系统提示和历史消息。
+     * Builds the API request body.
+     * Determines whether to include system prompt and history based on context
+     * restoration flag.
      *
-     * @param message                 用户输入的消息
-     * @param config                  当前配置 Map
-     * @param pullContentFromLastChat 是否从上次对话日志中恢复上下文
-     * @return 构建好的请求体 JsonObject
-     * @throws Exception 如果恢复上下文失败
+     * @param message                 user input message
+     * @param config                  current configuration Map
+     * @param pullContentFromLastChat whether to restore context from last chat log
+     * @return the built request body as JsonObject
+     * @throws Exception if context restoration fails
      */
     public static JsonObject populateRequestBody(String message, Map<String, String> config,
             boolean pullContentFromLastChat) throws Exception {

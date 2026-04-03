@@ -28,9 +28,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 /**
- * API 调用结果日志记录器。
- * 负责将 API 调用结果保存到文件并提供上下文恢复功能。
- * 日志文件命名格式为 MineDS_<index>.json，并使用 .index 文件跟踪当前索引。
+ * API call result logger.
+ * Responsible for saving API call results to files and providing context
+ * restoration.
+ * Log files are named MineDS_<index>.json and use a .index file to track the
+ * current index.
  */
 public class ResultLogger {
     private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
@@ -42,10 +44,10 @@ public class ResultLogger {
     private static final Path CACHE_PATH = MineDS.LOG_PATH.resolve(".index");
 
     /**
-     * 记录 API 调用结果到文件。
-     * 自动递增索引并更新缓存文件。
+     * Logs an API call result to file.
+     * Automatically increments index and updates the cache file.
      *
-     * @param result 要记录的 API 调用结果
+     * @param result the API call result to log
      */
     public static void log(ApiCallResult result) {
         try {
@@ -86,11 +88,11 @@ public class ResultLogger {
     }
 
     /**
-     * 从最近的 API 调用日志中获取对话上下文。
-     * 用于继续上次对话时恢复历史消息。
+     * Gets conversation context from the most recent API call log.
+     * Used to restore history when continuing a conversation.
      *
-     * @return 对话消息列表
-     * @throws Exception 如果读取或解析日志失败
+     * @return list of conversation messages
+     * @throws Exception if reading or parsing the log fails
      */
     public static List<RegularInputMessage> getContext() throws Exception {
         List<RegularInputMessage> list = new ArrayList<>();
@@ -133,11 +135,12 @@ public class ResultLogger {
      * index = read from cache7
      */
     /**
-     * 获取或创建日志索引。
-     * 如果缓存文件存在则从中读取，否则扫描日志目录获取最大索引。
+     * Gets or creates the log index.
+     * Reads from cache file if it exists, otherwise scans the log directory for the
+     * max index.
      *
-     * @return 当前日志索引
-     * @throws IOException 如果读写缓存文件失败
+     * @return the current log index
+     * @throws IOException if reading or writing the cache file fails
      */
     public static int getOrCreateIndex() throws IOException {
         if (!Files.exists(CACHE_PATH)) {
@@ -158,10 +161,11 @@ public class ResultLogger {
     }
 
     /**
-     * 在模组启动时初始化索引缓存。
-     * 无论缓存是否存在，都会扫描日志目录确保索引正确。
+     * Initializes the index cache on mod startup.
+     * Scans the log directory to ensure the index is correct, regardless of cache
+     * file existence.
      *
-     * @throws IOException 如果读写缓存文件失败
+     * @throws IOException if reading or writing the cache file fails
      */
     public static void initializeCacheOnStartup() throws IOException {
         int i = 0;
@@ -206,8 +210,9 @@ public class ResultLogger {
     }
 
     /**
-     * 日志轮转：删除超出数量限制的旧日志文件。
-     * 保留最近的 N 个日志文件，N 由 max_log_files 配置项决定。
+     * Log rotation: deletes old log files exceeding the configured limit.
+     * Keeps the most recent N log files, where N is determined by the max_log_files
+     * config option.
      */
     private static void rotateLogs() {
         try {
@@ -239,9 +244,9 @@ public class ResultLogger {
     }
 
     /**
-     * 清理所有日志文件并重置索引缓存。
+     * Clears all log files and resets the index cache.
      *
-     * @return 如果清理成功返回 true
+     * @return true if clearing succeeded, false otherwise
      */
     public static boolean clearAllLogs() {
         try {
