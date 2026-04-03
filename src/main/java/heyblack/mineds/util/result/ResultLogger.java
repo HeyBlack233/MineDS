@@ -48,27 +48,24 @@ public class ResultLogger {
                     MineDS.GSON.toJson(result).getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.CREATE
-            );
+                    StandardOpenOption.CREATE);
             // update cache file
             Files.write(
                     CACHE_PATH,
                     String.valueOf(i).getBytes(),
                     StandardOpenOption.WRITE,
                     StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.CREATE
-            );
+                    StandardOpenOption.CREATE);
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
             try {
                 MinecraftClient.getInstance().player.sendMessage(
                         MineDSClient.getChatPrefix()
                                 .append(new LiteralText("Failed to log API call!").formatted(Formatting.RED)),
-                        false
-                );
+                        false);
 
             } catch (NullPointerException n) {
-
+                MineDS.LOGGER.warn("[MineDS] ResultLogger - Player not available to show error message");
             }
         }
     }
@@ -107,11 +104,11 @@ public class ResultLogger {
     }
 
     /*
-    case: reading cache
-        case: index cache doesn't exist
-            index = has log file ? prev index : 1
-        case: index cache does exist
-            index = read from cache7
+     * case: reading cache
+     * case: index cache doesn't exist
+     * index = has log file ? prev index : 1
+     * case: index cache does exist
+     * index = read from cache7
      */
     public static int getOrCreateIndex() throws IOException {
         if (!Files.exists(CACHE_PATH)) {
@@ -132,22 +129,22 @@ public class ResultLogger {
     }
 
     /*
-    case: mod initializes
-        case: index cache doesn't exist
-            index = has log file ? prev index : 1
-        case: index cache does exist
-            index = has log file ? prev index : 1
+     * case: mod initializes
+     * case: index cache doesn't exist
+     * index = has log file ? prev index : 1
+     * case: index cache does exist
+     * index = has log file ? prev index : 1
      */
     public static void initializeCacheOnStartup() throws IOException {
         int i = 0;
-            try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-                if (files.findAny().isPresent()) {
-                    i = findMaxIndex();
-                } else {
-                    i = 1;
-                }
-                Files.write(CACHE_PATH, String.valueOf(i).getBytes());
+        try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
+            if (files.findAny().isPresent()) {
+                i = findMaxIndex();
+            } else {
+                i = 1;
             }
+            Files.write(CACHE_PATH, String.valueOf(i).getBytes());
+        }
     }
 
     private static int findMaxIndex() throws IOException {
@@ -165,16 +162,15 @@ public class ResultLogger {
 
     private static int findMaxIndexAsync() {
         try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-             CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> files
-                            .map(Path::getFileName)
-                            .map(Path::toString)
-                            .map(PATTERN::matcher)
-                            .filter(Matcher::matches)
-                            .map(matcher -> Integer.parseInt(matcher.group(1)))
-                            .max(Comparator.naturalOrder())
-                            .orElse(0), EXECUTOR
-                    );
-             return future.get();
+            CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> files
+                    .map(Path::getFileName)
+                    .map(Path::toString)
+                    .map(PATTERN::matcher)
+                    .filter(Matcher::matches)
+                    .map(matcher -> Integer.parseInt(matcher.group(1)))
+                    .max(Comparator.naturalOrder())
+                    .orElse(0), EXECUTOR);
+            return future.get();
         } catch (IOException | ExecutionException | InterruptedException e) {
             MineDS.LOGGER.error("[MineDS] Failed to get index from cache!");
             return 0;

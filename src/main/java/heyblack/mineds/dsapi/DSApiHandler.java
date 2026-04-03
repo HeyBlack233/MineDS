@@ -24,8 +24,7 @@ public class DSApiHandler {
             Map<String, String> config,
             boolean pullContentFromLastChat,
             ApiCallType type,
-            ResponseHandler handler
-    ) {
+            ResponseHandler handler) {
         MineDS.LOGGER.info("[MineDS] Calling API");
         try {
             JsonObject requestBody = populateRequestBody(message, config, pullContentFromLastChat);
@@ -67,7 +66,8 @@ public class DSApiHandler {
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("data: ")) {
                     String jsonData = line.substring(6).trim();
-                    if ("[DONE]".equals(jsonData)) break;
+                    if ("[DONE]".equals(jsonData))
+                        break;
 
                     JsonObject response = MineDS.GSON.fromJson(jsonData, JsonObject.class);
                     String content = extractDeltaContent(response);
@@ -116,12 +116,13 @@ public class DSApiHandler {
                 return delta.get("reasoning").getAsString();
             }
         } catch (Exception e) {
-
+            MineDS.LOGGER.warn("[MineDS] DSApi - Failed to extract reasoning content: " + e.getMessage());
         }
         return "";
     }
 
-    public static JsonObject populateRequestBody(String message, Map<String, String> config, boolean pullContentFromLastChat) throws Exception {
+    public static JsonObject populateRequestBody(String message, Map<String, String> config,
+            boolean pullContentFromLastChat) throws Exception {
         List<RegularInputMessage> messages = new ArrayList<>();
         if (pullContentFromLastChat) {
             MineDS.LOGGER.info("[MineDS] Pulling context from last api call result");
