@@ -6,6 +6,13 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
+// Mixin configuration
+loom {
+    mixin {
+        useLegacyMixinAp = false
+    }
+}
+
 repositories {
     maven { url "https://maven.shedaniel.me/" }
     maven { url "https://maven.terraformersmc.com/releases/" }

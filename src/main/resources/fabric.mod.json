@@ -19,6 +19,9 @@
       "heyblack.mineds.util.MineDSModMenuImpl"
     ]
   },
+  "mixins": [
+    "MineDS.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric": "*",

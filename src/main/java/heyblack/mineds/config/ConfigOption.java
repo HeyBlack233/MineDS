@@ -14,7 +14,9 @@ public enum ConfigOption {
     AI_NAME("ai_name", "DeepSeek"),
 
     // In-game advancement behaviour settings
-    ADVANCEMENT_CALL("advancement_call", "true"),
+    ADVANCEMENT_CALL("advancement_call", "false"),
+    ADVANCEMENT_FILTER_MODE("advancement_filter_mode", "blacklist"),
+    ADVANCEMENT_FILTERS("advancement_filters", "[]"),
     ;
 
     public final String id;

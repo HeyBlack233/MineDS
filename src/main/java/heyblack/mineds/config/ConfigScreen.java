@@ -1,10 +1,15 @@
 package heyblack.mineds.config;
 
+import com.google.common.collect.ImmutableList;
+import heyblack.mineds.MineDS;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.TranslatableText;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConfigScreen {
     private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
@@ -67,11 +72,46 @@ public class ConfigScreen {
             ConfigCategory inGameBehaviourAdvancement = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour_advancement"));
 
             inGameBehaviourAdvancement.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("mineds.config.option.advancement_call"), Boolean.parseBoolean(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.id)))
-                    .setDefaultValue(Boolean.valueOf(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.defaultValue)))
+                    .setDefaultValue(Boolean.parseBoolean(ConfigOption.ADVANCEMENT_CALL.defaultValue))
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_CALL.id, String.valueOf(newValue)))
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.advancement_filter_mode"), CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_MODE.id))
+                    .setDefaultValue(ConfigOption.ADVANCEMENT_FILTER_MODE.defaultValue)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, newValue))
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_filters"), parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTERS.id)))
+                    .setDefaultValue(ImmutableList.of())
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTERS.id, listToJson(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_filters"))
                     .build());
         }
 
         return builder.build();
+    }
+    
+    /**
+     * Parses JSON string to list for the filter config.
+     * 
+     * @param json the JSON string
+     * @return the list of filter patterns
+     */
+    private static List<String> parseFilterList(String json) {
+        try {
+            return MineDS.GSON.fromJson(json, new com.google.gson.reflect.TypeToken<List<String>>(){}.getType());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Converts list to JSON string for storage.
+     * 
+     * @param list the list to convert
+     * @return JSON string
+     */
+    private static String listToJson(List<String> list) {
+        return MineDS.GSON.toJson(list);
     }
 }

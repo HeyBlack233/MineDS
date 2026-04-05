@@ -31,7 +31,7 @@ import static com.mojang.brigadier.arguments.StringArgumentType.greedyString;
 public class MineDSClient implements ClientModInitializer {
     private static final ConfigManager configManager = ConfigManager.getInstance();
 
-    private static final ExecutorService requestExecutor = Executors.newFixedThreadPool(
+    private static ExecutorService requestExecutor = Executors.newFixedThreadPool(
             Integer.parseInt((configManager.get(ConfigOption.MAX_REQUEST.id)))
     );
 
@@ -135,5 +135,24 @@ public class MineDSClient implements ClientModInitializer {
 
     public static MutableText getChatPrefix() {
         return new LiteralText("[MineDS] ").formatted(Formatting.GRAY);
+    }
+    
+    /**
+     * Gets the request executor for submitting API calls.
+     * Recreates the executor if it has been shutdown.
+     * 
+     * @return the executor service
+     */
+    public static ExecutorService getExecutor() {
+        if (requestExecutor.isShutdown() || requestExecutor.isTerminated()) {
+            synchronized (MineDSClient.class) {
+                if (requestExecutor.isShutdown() || requestExecutor.isTerminated()) {
+                    requestExecutor = Executors.newFixedThreadPool(
+                            Integer.parseInt(configManager.get(ConfigOption.MAX_REQUEST.id))
+                    );
+                }
+            }
+        }
+        return requestExecutor;
     }
 }
