@@ -2,6 +2,8 @@ package heyblack.mineds.filter;
 
 import heyblack.mineds.MineDS;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -26,7 +28,7 @@ public class AchievementFilter {
      */
     public AchievementFilter(String mode, List<String> patterns) {
         this.mode = "whitelist".equalsIgnoreCase(mode) ? FilterMode.WHITELIST : FilterMode.BLACKLIST;
-        this.patterns = patterns != null ? patterns : List.of();
+        this.patterns = patterns != null ? patterns : Collections.emptyList();
     }
     
     /**
