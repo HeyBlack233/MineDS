@@ -81,7 +81,8 @@ public class ConfigScreen {
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, newValue))
                     .build());
 
-            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_filters"), parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTERS.id)))
+            List<String> currentFilters = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTERS.id));
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_filters"), new ArrayList<>(currentFilters))
                     .setDefaultValue(new ArrayList<>())
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTERS.id, listToJson(newValue)))
                     .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_filters"))
