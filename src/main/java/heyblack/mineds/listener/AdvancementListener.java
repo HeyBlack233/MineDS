@@ -75,6 +75,11 @@ public class AdvancementListener {
      */
     private static boolean isAdvancementAllowed(String advancementId) {
         try {
+            // Check if filter is enabled
+            if (!Boolean.parseBoolean(configManager.get(ConfigOption.ADVANCEMENT_FILTER_ENABLED.id))) {
+                return true; // Filter disabled, all advancements are allowed
+            }
+
             String filterModeName = configManager.get(ConfigOption.ADVANCEMENT_FILTER_MODE.id);
             AdvancementFilterMode filterMode = AdvancementFilterMode.fromName(filterModeName);
             String blacklistJson = configManager.get(ConfigOption.ADVANCEMENT_BLACKLIST.id);

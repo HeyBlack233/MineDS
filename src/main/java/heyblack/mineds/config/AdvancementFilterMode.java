@@ -1,7 +1,7 @@
 package heyblack.mineds.config;
 
 /**
- * Represents the advancement filter mode.
+ * Represents the advancement filter mode and list type.
  * BLACKLIST: Advancements matching the blacklist are filtered out.
  * WHITELIST: Only advancements matching the whitelist are allowed.
  */
@@ -13,6 +13,15 @@ public enum AdvancementFilterMode {
 
     AdvancementFilterMode(String name) {
         this.name = name;
+    }
+
+    /**
+     * Gets the corresponding ConfigOption for this filter list.
+     */
+    public ConfigOption getConfigOption() {
+        return this == BLACKLIST
+                ? ConfigOption.ADVANCEMENT_BLACKLIST
+                : ConfigOption.ADVANCEMENT_WHITELIST;
     }
 
     /**

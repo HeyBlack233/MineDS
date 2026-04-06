@@ -76,6 +76,11 @@ public class ConfigScreen {
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_CALL.id, String.valueOf(newValue)))
                     .build());
 
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("mineds.config.option.advancement_filter_enabled"), Boolean.parseBoolean(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_ENABLED.id)))
+                    .setDefaultValue(Boolean.parseBoolean(ConfigOption.ADVANCEMENT_FILTER_ENABLED.defaultValue))
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_ENABLED.id, String.valueOf(newValue)))
+                    .build());
+
             inGameBehaviourAdvancement.addEntry(entryBuilder.startEnumSelector(
                             new TranslatableText("mineds.config.option.advancement_filter_mode"),
                             AdvancementFilterMode.class,
