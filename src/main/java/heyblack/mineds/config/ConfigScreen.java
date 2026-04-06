@@ -76,13 +76,21 @@ public class ConfigScreen {
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_CALL.id, String.valueOf(newValue)))
                     .build());
 
-            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.advancement_filter_mode"), CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_MODE.id))
-                    .setDefaultValue(ConfigOption.ADVANCEMENT_FILTER_MODE.defaultValue)
-                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, newValue))
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startEnumSelector(
+                            new TranslatableText("mineds.config.option.advancement_filter_mode"),
+                            AdvancementFilterMode.class,
+                            AdvancementFilterMode.fromName(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_MODE.id)))
+                    .setEnumNameProvider(mode -> {
+                        AdvancementFilterMode afm = (AdvancementFilterMode) mode;
+                        return new TranslatableText("mineds.config.enum.advancement_filter_mode." + afm.name.toLowerCase());
+                    })
+                    .setDefaultValue(AdvancementFilterMode.BLACKLIST)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, newValue.name))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_filter_mode"))
                     .build());
 
-            List<String> currentFilters = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTERS.id));
-            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_filters"), new ArrayList<>(currentFilters))
+            List<String> currentBlacklist = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_BLACKLIST.id));
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_blacklist"), new ArrayList<>(currentBlacklist))
                     .setDefaultValue(new ArrayList<>())
                     .setSaveConsumer(newValue -> {
                         List<String> filtered = new ArrayList<>();
@@ -91,11 +99,34 @@ public class ConfigScreen {
                                 filtered.add(s.trim());
                             }
                         }
-                        CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTERS.id, listToJson(filtered));
+                        CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_BLACKLIST.id, listToJson(filtered));
                     })
-                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_filters"))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_blacklist"))
                     .setExpanded(true)
                     .setInsertInFront(true)
+                    .build());
+
+            List<String> currentWhitelist = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_WHITELIST.id));
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_whitelist"), new ArrayList<>(currentWhitelist))
+                    .setDefaultValue(new ArrayList<>())
+                    .setSaveConsumer(newValue -> {
+                        List<String> filtered = new ArrayList<>();
+                        for (String s : newValue) {
+                            if (s != null && !s.trim().isEmpty()) {
+                                filtered.add(s.trim());
+                            }
+                        }
+                        CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_WHITELIST.id, listToJson(filtered));
+                    })
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_whitelist"))
+                    .setExpanded(true)
+                    .setInsertInFront(true)
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.advancement_prompt"), CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_PROMPT.id))
+                    .setDefaultValue(ConfigOption.ADVANCEMENT_PROMPT.defaultValue)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_PROMPT.id, newValue))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_prompt"))
                     .build());
         }
 
