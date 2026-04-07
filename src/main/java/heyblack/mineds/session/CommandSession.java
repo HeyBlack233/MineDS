@@ -1,8 +1,10 @@
 package heyblack.mineds.session;
 
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.util.message.AbstractMessage;
 
+import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -14,6 +16,11 @@ public class CommandSession extends Session {
 
     public CommandSession() {
         super(SessionType.COMMAND);
+    }
+
+    public CommandSession(String sessionId, Instant createdAt, Instant lastActiveAt, String assignedAi) {
+        super(sessionId, SessionType.COMMAND, createdAt, lastActiveAt, assignedAi);
+        this.lastCommandType = "ds";
     }
 
     @Override
@@ -37,5 +44,19 @@ public class CommandSession extends Session {
 
     public boolean isContinuation() {
         return "dsc".equals(lastCommandType);
+    }
+
+    @Override
+    protected JsonObject getMetadataJson() {
+        JsonObject metadata = new JsonObject();
+        metadata.addProperty("lastCommandType", lastCommandType != null ? lastCommandType : "ds");
+        return metadata;
+    }
+
+    @Override
+    protected void fromMetadataJson(JsonObject metadata) {
+        if (metadata.has("lastCommandType")) {
+            this.lastCommandType = metadata.get("lastCommandType").getAsString();
+        }
     }
 }

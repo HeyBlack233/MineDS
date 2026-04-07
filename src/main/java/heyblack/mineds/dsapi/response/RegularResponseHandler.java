@@ -51,24 +51,38 @@ public class RegularResponseHandler implements ResponseHandler {
         if (!remaining.isEmpty()) client.execute(() -> sendAIMessage(remaining.trim()));
         client.execute(() -> player.sendMessage(MineDSClient.getChatPrefix().append(new LiteralText("Output complete").formatted(Formatting.ITALIC)), false));
 
-        JsonObject outputJson = new JsonObject();
-        List<OutputMessage> msgOut = new ArrayList<>();
-        msgOut.add(new OutputMessage(outputContent.toString().trim(), outputContentReasoning.toString().trim()));
-        outputJson.add("message", MineDS.GSON.toJsonTree(msgOut));
-        ResultLogger.log(new ApiCallResult(inputRequest, outputJson, true));
+        // Generate input summary (without full context)
+        String lastUserMsg = message.length() > 200 ? message.substring(0, 200) + "..." : message;
+        JsonObject inputSummary = heyblack.mineds.storage.LogManager.generateInputSummary(
+                session.getContext(), lastUserMsg, configManager.getAiProfile(session.getAssignedAi()).getModel());
 
-        if (session != null) {
-            String assistantContent = outputContent.toString().trim();
-            if (!assistantContent.isEmpty()) session.addMessage(new RegularInputMessage("assistant", assistantContent));
+        // Build output summary
+        JsonObject output = new JsonObject();
+        output.addProperty("content", outputContent.toString().trim());
+        output.addProperty("reasoningContent", outputContentReasoning.toString().trim());
+
+        // Log the result
+        heyblack.mineds.util.result.ApiCallResult result = new heyblack.mineds.util.result.ApiCallResult(
+                session.getSessionId(), session.getType().name(),
+                configManager.getAiProfile(session.getAssignedAi()).getModel(),
+                configManager.getAiProfile(session.getAssignedAi()).getUrl(),
+                inputSummary, output, true, 0, null);
+        heyblack.mineds.util.result.ResultLogger.log(result, session);
+
+        // Add assistant message to session context
+        if (!outputContent.toString().trim().isEmpty()) {
+            session.addMessage(new RegularInputMessage("assistant", outputContent.toString().trim()));
         }
     }
 
     @Override
     public void onError(JsonObject error) {
-        JsonObject errorJson = new JsonObject();
-        errorJson.add("error", error);
-        ResultLogger.log(new ApiCallResult(inputRequest, errorJson, false));
-        client.execute(() -> player.sendMessage(MineDSClient.getChatPrefix().append(new LiteralText("Error: " + error).formatted(Formatting.RED)), false));
+        String errorMsg = error.has("error") ? error.get("error").getAsString() : error.toString();
+        heyblack.mineds.util.result.ApiCallResult result = new heyblack.mineds.util.result.ApiCallResult(
+                "unknown", "UNKNOWN", "unknown", "unknown",
+                new JsonObject(), null, false, 0, errorMsg);
+        // Try to log if we have session info
+        client.execute(() -> player.sendMessage(MineDSClient.getChatPrefix().append(new LiteralText("Error: " + errorMsg).formatted(Formatting.RED)), false));
     }
 
     private void sendAIMessage(String content) {
