@@ -52,7 +52,8 @@ public class MineDSClient implements ClientModInitializer {
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            ResultLogger.initializeCacheOnStartup();
+            // SessionStorage.initialize() is called in SessionManager constructor
+            SessionManager.getInstance();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);
@@ -145,15 +146,29 @@ public class MineDSClient implements ClientModInitializer {
 
         CommandSession session = (CommandSession) SessionManager.getInstance().getOrCreateSession(SessionType.COMMAND);
         session.setLastCommandType(pullContentFromLastChat ? "dsc" : "ds");
-        if (!pullContentFromLastChat) session.clearContext();
+        if (!pullContentFromLastChat) SessionManager.getInstance().clearActiveSessionContext(SessionType.COMMAND);
 
         String aiName = configManager.getAiNameForSessionType(SessionType.COMMAND);
         session.setAssignedAi(aiName);
 
+        // Get AI profile to add system message to context if not present
+        AiProfile aiProfile = configManager.getAiProfile(aiName);
+        boolean hasSystemMessage = session.getContext().stream().anyMatch(m -> "system".equals(m.getRole()));
+        if (!hasSystemMessage && aiProfile.getSystemMessage() != null && !aiProfile.getSystemMessage().isEmpty()) {
+            session.addMessage(new heyblack.mineds.util.message.RegularInputMessage("system", aiProfile.getSystemMessage()));
+        }
+
+        // Add user message to session context (will be persisted automatically)
+        session.addMessage(new heyblack.mineds.util.message.RegularInputMessage("user", message));
+
+        // Update SessionManager's directory mapping if persist() created a new directory
+        if (session.getDirectoryName() != null) {
+            SessionManager.getInstance().updateActiveSessionDirectory(SessionType.COMMAND, session.getDirectoryName());
+        }
+
         requestExecutor.submit(() -> {
             SentenceSplitter splitter = new SentenceSplitter();
             try {
-                AiProfile aiProfile = configManager.getAiProfile(aiName);
                 JsonObject inputRequest = DSApiHandler.populateRequestBody(message, session, aiProfile);
                 DSApiHandler.callApiStreaming(message, session, new RegularResponseHandler(splitter, CLIENT, inputRequest));
             } catch (Exception e) {

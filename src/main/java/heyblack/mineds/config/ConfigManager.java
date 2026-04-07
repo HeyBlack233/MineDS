@@ -209,4 +209,14 @@ public class ConfigManager {
         try { return Integer.parseInt(get(ConfigOption.SESSION_TTL_HOURS.id)); }
         catch (NumberFormatException e) { return 24; }
     }
+
+    public int getMaxCommandSessions() {
+        try { return Integer.parseInt(get(ConfigOption.MAX_COMMAND_SESSIONS.id)); }
+        catch (NumberFormatException e) { return 20; }
+    }
+
+    public int getMaxAdvancementSessions() {
+        try { return Integer.parseInt(get(ConfigOption.MAX_ADVANCEMENT_SESSIONS.id)); }
+        catch (NumberFormatException e) { return 10; }
+    }
 }

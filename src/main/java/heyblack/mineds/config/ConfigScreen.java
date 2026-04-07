@@ -73,6 +73,18 @@ public class ConfigScreen {
                     .setMin(1).setMax(168)
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.SESSION_TTL_HOURS.id, String.valueOf(newValue)))
                     .setTooltip(new TranslatableText("mineds.config.tooltip.session_ttl_hours")).build());
+
+            multiAi.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_command_sessions"), CONFIG_MANAGER.getMaxCommandSessions())
+                    .setDefaultValue(Integer.parseInt(ConfigOption.MAX_COMMAND_SESSIONS.defaultValue))
+                    .setMin(1).setMax(100)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.MAX_COMMAND_SESSIONS.id, String.valueOf(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.max_command_sessions")).build());
+
+            multiAi.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_advancement_sessions"), CONFIG_MANAGER.getMaxAdvancementSessions())
+                    .setDefaultValue(Integer.parseInt(ConfigOption.MAX_ADVANCEMENT_SESSIONS.defaultValue))
+                    .setMin(1).setMax(100)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.MAX_ADVANCEMENT_SESSIONS.id, String.valueOf(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.max_advancement_sessions")).build());
         }
 
         {

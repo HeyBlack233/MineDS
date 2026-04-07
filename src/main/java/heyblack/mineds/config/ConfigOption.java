@@ -26,6 +26,8 @@ public enum ConfigOption {
     COMMAND_SESSION_AI("command_session_ai", "default"),
     ADVANCEMENT_SESSION_AI("advancement_session_ai", "default"),
     SESSION_TTL_HOURS("session_ttl_hours", "24"),
+    MAX_COMMAND_SESSIONS("max_command_sessions", "20"),
+    MAX_ADVANCEMENT_SESSIONS("max_advancement_sessions", "10"),
     ;
 
     public final String id;

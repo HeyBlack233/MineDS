@@ -1,8 +1,15 @@
 package heyblack.mineds.session;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
+import heyblack.mineds.storage.SessionStorage;
 import heyblack.mineds.util.message.AbstractMessage;
+import heyblack.mineds.util.message.RegularInputMessage;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -24,6 +31,10 @@ public abstract class Session {
     protected boolean isFavorite;
     protected String assignedAi;
 
+    // Path to this session's directory on disk (set after persistence)
+    protected transient Path storagePath;
+    protected transient String directoryName;
+
     protected Session(SessionType type) {
         this.type = type;
         this.sessionId = generateSessionId();
@@ -35,6 +46,17 @@ public abstract class Session {
         onSessionCreated();
     }
 
+    /** Constructor for deserialization */
+    protected Session(String sessionId, SessionType type, Instant createdAt, Instant lastActiveAt, String assignedAi) {
+        this.sessionId = sessionId;
+        this.type = type;
+        this.context = new ArrayList<>();
+        this.createdAt = createdAt;
+        this.lastActiveAt = lastActiveAt;
+        this.isFavorite = false;
+        this.assignedAi = assignedAi;
+    }
+
     /** Generate a unique session ID. */
     protected abstract String generateSessionId();
 
@@ -44,11 +66,33 @@ public abstract class Session {
     /** Called when a message is added to the context. */
     public abstract void onMessageAdded(AbstractMessage message);
 
-    /** Adds a message to the conversation context. */
+    /** Adds a message to the conversation context and persists to disk. */
     public void addMessage(AbstractMessage message) {
         context.add(message);
         lastActiveAt = Instant.now();
         onMessageAdded(message);
+        // Auto-persist after adding a message
+        persist();
+    }
+
+    /** Persists this session to disk. Creates new directory if directoryName is null. */
+    public void persist() {
+        try {
+            if (directoryName == null) {
+                // Need to create a new directory
+                directoryName = SessionStorage.generateDirectoryName();
+                MineDS.LOGGER.info("[MineDS] Creating new directory for session {}: {}", sessionId, directoryName);
+            }
+            this.storagePath = SessionStorage.saveSession(this, directoryName);
+        } catch (IOException e) {
+            MineDS.LOGGER.error("[MineDS] Failed to persist session {}: {}", sessionId, e.getMessage());
+        }
+    }
+
+    /** Sets the storage path and directory name after initial persistence. */
+    public void setStorageInfo(Path path, String dirName) {
+        this.storagePath = path;
+        this.directoryName = dirName;
     }
 
     /** Returns an unmodifiable view of the conversation context. */
@@ -56,9 +100,12 @@ public abstract class Session {
         return Collections.unmodifiableList(context);
     }
 
-    /** Clears the conversation context. */
+    /** Clears the conversation context and resets storage info (new directory on next persist). */
     public void clearContext() {
         context.clear();
+        // Reset storage info so next persist creates a new directory
+        this.storagePath = null;
+        this.directoryName = null;
     }
 
     /** Toggles the favorite status of this session. */
@@ -72,6 +119,83 @@ public abstract class Session {
         return !isFavorite && Duration.between(lastActiveAt, Instant.now()).compareTo(ttl) > 0;
     }
 
+    // ── Serialization ─────────────────────────────────────────────────
+
+    /** Serializes this session to a JsonObject. */
+    public JsonObject toJson() {
+        JsonObject json = new JsonObject();
+        json.addProperty("sessionId", sessionId);
+        json.addProperty("type", type.name());
+        json.addProperty("createdAt", createdAt.toString());
+        json.addProperty("lastActiveAt", lastActiveAt.toString());
+        json.addProperty("assignedAi", assignedAi);
+
+        JsonArray contextArray = new JsonArray();
+        for (AbstractMessage msg : context) {
+            JsonObject msgJson = new JsonObject();
+            msgJson.addProperty("role", msg.getRole());
+            msgJson.addProperty("content", msg.getContent());
+            contextArray.add(msgJson);
+        }
+        json.add("context", contextArray);
+
+        JsonObject metadata = getMetadataJson();
+        if (metadata != null) {
+            json.add("metadata", metadata);
+        }
+
+        return json;
+    }
+
+    /** Returns type-specific metadata. Override in subclass. */
+    protected JsonObject getMetadataJson() {
+        return null;
+    }
+
+    /** Creates a session from JSON. Subclasses should override. */
+    public static Session fromJson(JsonObject json) {
+        String typeName = json.get("type").getAsString();
+        SessionType type = SessionType.valueOf(typeName);
+
+        String sessionId = json.get("sessionId").getAsString();
+        Instant createdAt = Instant.parse(json.get("createdAt").getAsString());
+        Instant lastActiveAt = Instant.parse(json.get("lastActiveAt").getAsString());
+        String assignedAi = json.has("assignedAi") ? json.get("assignedAi").getAsString() : "default";
+
+        Session session;
+        if (type == SessionType.COMMAND) {
+            session = new CommandSession(sessionId, createdAt, lastActiveAt, assignedAi);
+        } else if (type == SessionType.ADVANCEMENT) {
+            session = new AdvancementSession(sessionId, createdAt, lastActiveAt, assignedAi);
+        } else {
+            throw new IllegalArgumentException("Unknown session type: " + typeName);
+        }
+
+        // Restore context
+        if (json.has("context")) {
+            JsonArray contextArray = json.getAsJsonArray("context");
+            for (JsonElement elem : contextArray) {
+                JsonObject msgJson = elem.getAsJsonObject();
+                session.context.add(new RegularInputMessage(
+                        msgJson.get("role").getAsString(),
+                        msgJson.get("content").getAsString()
+                ));
+            }
+        }
+
+        // Restore type-specific metadata
+        if (json.has("metadata") && !json.get("metadata").isJsonNull()) {
+            session.fromMetadataJson(json.getAsJsonObject("metadata"));
+        }
+
+        return session;
+    }
+
+    /** Restores type-specific metadata. Override in subclass. */
+    protected void fromMetadataJson(JsonObject metadata) {
+        // Default: do nothing
+    }
+
     // ── Getters ───────────────────────────────────────────────────────
 
     public String getSessionId() { return sessionId; }
@@ -81,4 +205,6 @@ public abstract class Session {
     public boolean isFavorite() { return isFavorite; }
     public String getAssignedAi() { return assignedAi; }
     public void setAssignedAi(String assignedAi) { this.assignedAi = assignedAi; }
+    public Path getStoragePath() { return storagePath; }
+    public String getDirectoryName() { return directoryName; }
 }

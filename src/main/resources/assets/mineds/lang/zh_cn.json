@@ -22,6 +22,8 @@
   "mineds.config.option.command_session_ai": "命令会话 AI",
   "mineds.config.option.advancement_session_ai": "成就会话 AI",
   "mineds.config.option.session_ttl_hours": "会话过期时间（小时）",
+  "mineds.config.option.max_command_sessions": "最大命令会话数",
+  "mineds.config.option.max_advancement_sessions": "最大成就会话数",
 
   "mineds.config.tooltip.url": "API 端点 URL",
   "mineds.config.tooltip.api_key": "API 密钥（请妥善保管）",
@@ -33,6 +35,8 @@
   "mineds.config.tooltip.command_session_ai": "命令会话（/ds, /dsc）使用的 AI 档案名称",
   "mineds.config.tooltip.advancement_session_ai": "成就触发会话使用的 AI 档案名称",
   "mineds.config.tooltip.session_ttl_hours": "会话过期时间（小时），过期后自动清理（1-168）",
+  "mineds.config.tooltip.max_command_sessions": "同时保留的最大命令会话数量（不含收藏）",
+  "mineds.config.tooltip.max_advancement_sessions": "同时保留的最大成就会话数量（不含收藏）",
 
   "mineds.config.tooltip.advancement_filter_mode": "黑名单：过滤掉匹配的成就。白名单：仅允许匹配的成就。",
   "mineds.config.tooltip.advancement_blacklist": "排除这些成就触发 API 调用。",

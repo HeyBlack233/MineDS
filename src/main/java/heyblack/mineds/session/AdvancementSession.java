@@ -1,8 +1,10 @@
 package heyblack.mineds.session;
 
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.util.message.AbstractMessage;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -20,6 +22,10 @@ public class AdvancementSession extends Session {
 
     public AdvancementSession() {
         super(SessionType.ADVANCEMENT);
+    }
+
+    public AdvancementSession(String sessionId, Instant createdAt, Instant lastActiveAt, String assignedAi) {
+        super(sessionId, SessionType.ADVANCEMENT, createdAt, lastActiveAt, assignedAi);
     }
 
     @Override
@@ -63,5 +69,23 @@ public class AdvancementSession extends Session {
     public void setChainState(ChainState state) {
         this.chainState = state;
         MineDS.LOGGER.info("[MineDS] Advancement session {} state: {}", sessionId, state);
+    }
+
+    @Override
+    protected JsonObject getMetadataJson() {
+        JsonObject metadata = new JsonObject();
+        metadata.addProperty("chainState", chainState.name());
+        return metadata;
+    }
+
+    @Override
+    protected void fromMetadataJson(JsonObject metadata) {
+        if (metadata.has("chainState")) {
+            try {
+                this.chainState = ChainState.valueOf(metadata.get("chainState").getAsString());
+            } catch (IllegalArgumentException e) {
+                this.chainState = ChainState.IDLE;
+            }
+        }
     }
 }

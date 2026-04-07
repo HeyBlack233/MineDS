@@ -104,14 +104,20 @@ public class DSApiHandler {
         List<RegularInputMessage> messages = new ArrayList<>();
         List<AbstractMessage> context = session.getContext();
 
-        if (context.isEmpty()) {
-            messages.add(new RegularInputMessage("system", aiProfile.getSystemMessage()));
-        } else {
-            for (AbstractMessage msg : context) {
-                messages.add(new RegularInputMessage(msg.getRole(), msg.getContent()));
-            }
+        // Add system message first
+        messages.add(new RegularInputMessage("system", aiProfile.getSystemMessage()));
+
+        // Add context messages (user and assistant history)
+        for (AbstractMessage msg : context) {
+            messages.add(new RegularInputMessage(msg.getRole(), msg.getContent()));
         }
-        messages.add(new RegularInputMessage("user", message));
+
+        // Add current user message (already in session context, but included here for the API request)
+        // The user message is the last item in context if it was added before the API call
+        boolean userAlreadyInContext = !context.isEmpty() && "user".equals(context.get(context.size() - 1).getRole());
+        if (!userAlreadyInContext) {
+            messages.add(new RegularInputMessage("user", message));
+        }
 
         JsonObject requestBody = BaseRequest.populateFromAiProfile(aiProfile);
         requestBody.add("messages", MineDS.GSON.toJsonTree(messages));
