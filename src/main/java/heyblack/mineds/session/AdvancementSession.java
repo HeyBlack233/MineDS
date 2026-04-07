@@ -1,0 +1,67 @@
+package heyblack.mineds.session;
+
+import heyblack.mineds.MineDS;
+import heyblack.mineds.util.message.AbstractMessage;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+/**
+ * Session for advancement-triggered API calls.
+ * Supports chain processing: first advancement triggers immediately,
+ * subsequent ones are buffered and merged after the current call completes.
+ */
+public class AdvancementSession extends Session {
+
+    private final Queue<PendingAdvancement> pendingBuffer = new ConcurrentLinkedQueue<>();
+    private ChainState chainState = ChainState.IDLE;
+
+    public AdvancementSession() {
+        super(SessionType.ADVANCEMENT);
+    }
+
+    @Override
+    protected String generateSessionId() {
+        return "adv_" + System.currentTimeMillis();
+    }
+
+    @Override
+    public void onSessionCreated() {
+        MineDS.LOGGER.info("[MineDS] Advancement session created: {}", sessionId);
+    }
+
+    @Override
+    public void onMessageAdded(AbstractMessage message) {
+        MineDS.LOGGER.debug("[MineDS] Advancement session {} message added: role={}", sessionId, message.getRole());
+    }
+
+    public void addPendingAdvancement(PendingAdvancement advancement) {
+        pendingBuffer.add(advancement);
+        MineDS.LOGGER.info("[MineDS] Advancement buffered: {} (session: {})", advancement.title, sessionId);
+    }
+
+    public List<PendingAdvancement> drainPendingAdvancements() {
+        List<PendingAdvancement> batch = new ArrayList<>(pendingBuffer);
+        pendingBuffer.clear();
+        return batch;
+    }
+
+    public boolean hasPendingAdvancements() {
+        return !pendingBuffer.isEmpty();
+    }
+
+    public int getPendingCount() {
+        return pendingBuffer.size();
+    }
+
+    public ChainState getChainState() {
+        return chainState;
+    }
+
+    public void setChainState(ChainState state) {
+        this.chainState = state;
+        MineDS.LOGGER.info("[MineDS] Advancement session {} state: {}", sessionId, state);
+    }
+}

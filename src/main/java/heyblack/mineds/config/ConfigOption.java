@@ -20,6 +20,12 @@ public enum ConfigOption {
     ADVANCEMENT_BLACKLIST("advancement_blacklist", "[]"),
     ADVANCEMENT_WHITELIST("advancement_whitelist", "[]"),
     ADVANCEMENT_PROMPT("advancement_prompt", "[Advancement Triggered]\nTitle: {title}\nDescription: {description}\nID: {id}\n\nPlease respond to this advancement."),
+
+    // Session and multi-AI settings
+    AI_PROFILES("ai_profiles", "{}"),
+    COMMAND_SESSION_AI("command_session_ai", "default"),
+    ADVANCEMENT_SESSION_AI("advancement_session_ai", "default"),
+    SESSION_TTL_HOURS("session_ttl_hours", "24"),
     ;
 
     public final String id;
