@@ -1,0 +1,29 @@
+{
+  "mineds.config.title": "MineDS 配置",
+  "mineds.config.category.api": "API 设置",
+  "mineds.config.category.in_game_behaviour_general": "通用行为",
+  "mineds.config.category.in_game_behaviour_advancement": "成就行为",
+
+  "mineds.config.option.url": "API 地址",
+  "mineds.config.option.api_key": "API 密钥",
+  "mineds.config.option.model": "模型",
+  "mineds.config.option.sys_message": "系统消息",
+  "mineds.config.option.max_tokens": "最大 Token 数",
+  "mineds.config.option.temperature": "温度",
+  "mineds.config.option.ai_name": "AI 名称",
+  "mineds.config.option.max_request": "最大并发请求数",
+  "mineds.config.option.advancement_call": "启用成就触发",
+  "mineds.config.option.advancement_filter_enabled": "启用成就过滤",
+  "mineds.config.option.advancement_filter_mode": "过滤模式",
+  "mineds.config.option.advancement_blacklist": "黑名单",
+  "mineds.config.option.advancement_whitelist": "白名单",
+  "mineds.config.option.advancement_prompt": "成就消息模板",
+
+  "mineds.config.tooltip.advancement_filter_mode": "黑名单：过滤掉匹配的成就。白名单：仅允许匹配的成就。",
+  "mineds.config.tooltip.advancement_blacklist": "排除这些成就触发 API 调用。",
+  "mineds.config.tooltip.advancement_whitelist": "仅允许这些成就触发 API 调用。",
+  "mineds.config.tooltip.advancement_prompt": "成就触发时发送的消息模板。变量：{title}、{description}、{id}。",
+
+  "mineds.config.enum.advancement_filter_mode.blacklist": "黑名单",
+  "mineds.config.enum.advancement_filter_mode.whitelist": "白名单"
+}

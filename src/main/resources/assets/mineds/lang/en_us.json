@@ -1,0 +1,29 @@
+{
+  "mineds.config.title": "MineDS Configuration",
+  "mineds.config.category.api": "API Settings",
+  "mineds.config.category.in_game_behaviour_general": "General Behaviour",
+  "mineds.config.category.in_game_behaviour_advancement": "Advancement Behaviour",
+
+  "mineds.config.option.url": "API URL",
+  "mineds.config.option.api_key": "API Key",
+  "mineds.config.option.model": "Model",
+  "mineds.config.option.sys_message": "System Message",
+  "mineds.config.option.max_tokens": "Max Tokens",
+  "mineds.config.option.temperature": "Temperature",
+  "mineds.config.option.ai_name": "AI Name",
+  "mineds.config.option.max_request": "Max Concurrent Requests",
+  "mineds.config.option.advancement_call": "Enable Advancement Trigger",
+  "mineds.config.option.advancement_filter_enabled": "Enable Advancement Filter",
+  "mineds.config.option.advancement_filter_mode": "Filter Mode",
+  "mineds.config.option.advancement_blacklist": "Blacklist",
+  "mineds.config.option.advancement_whitelist": "Whitelist",
+  "mineds.config.option.advancement_prompt": "Advancement Prompt Template",
+
+  "mineds.config.tooltip.advancement_filter_mode": "BLACKLIST: Filter out matching advancements. WHITELIST: Only allow matching advancements.",
+  "mineds.config.tooltip.advancement_blacklist": "Advancement IDs to exclude from triggering API calls.",
+  "mineds.config.tooltip.advancement_whitelist": "Advancement IDs to allow triggering API calls.",
+  "mineds.config.tooltip.advancement_prompt": "Template for the message sent when an advancement is triggered. Variables: {title}, {description}, {id}.",
+
+  "mineds.config.enum.advancement_filter_mode.blacklist": "Blacklist",
+  "mineds.config.enum.advancement_filter_mode.whitelist": "Whitelist"
+}

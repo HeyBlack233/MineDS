@@ -1,10 +1,15 @@
 package heyblack.mineds.config;
 
+import com.google.common.collect.ImmutableList;
+import heyblack.mineds.MineDS;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.TranslatableText;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ConfigScreen {
     private static final ConfigManager CONFIG_MANAGER = ConfigManager.getInstance();
@@ -67,11 +72,93 @@ public class ConfigScreen {
             ConfigCategory inGameBehaviourAdvancement = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour_advancement"));
 
             inGameBehaviourAdvancement.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("mineds.config.option.advancement_call"), Boolean.parseBoolean(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.id)))
-                    .setDefaultValue(Boolean.valueOf(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_CALL.defaultValue)))
+                    .setDefaultValue(Boolean.parseBoolean(ConfigOption.ADVANCEMENT_CALL.defaultValue))
                     .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_CALL.id, String.valueOf(newValue)))
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startBooleanToggle(new TranslatableText("mineds.config.option.advancement_filter_enabled"), Boolean.parseBoolean(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_ENABLED.id)))
+                    .setDefaultValue(Boolean.parseBoolean(ConfigOption.ADVANCEMENT_FILTER_ENABLED.defaultValue))
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_ENABLED.id, String.valueOf(newValue)))
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startEnumSelector(
+                            new TranslatableText("mineds.config.option.advancement_filter_mode"),
+                            AdvancementFilterMode.class,
+                            AdvancementFilterMode.fromName(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_FILTER_MODE.id)))
+                    .setEnumNameProvider(mode -> {
+                        AdvancementFilterMode afm = (AdvancementFilterMode) mode;
+                        return new TranslatableText("mineds.config.enum.advancement_filter_mode." + afm.name.toLowerCase());
+                    })
+                    .setDefaultValue(AdvancementFilterMode.BLACKLIST)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, newValue.name))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_filter_mode"))
+                    .build());
+
+            List<String> currentBlacklist = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_BLACKLIST.id));
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_blacklist"), new ArrayList<>(currentBlacklist))
+                    .setDefaultValue(new ArrayList<>())
+                    .setSaveConsumer(newValue -> {
+                        List<String> filtered = new ArrayList<>();
+                        for (String s : newValue) {
+                            if (s != null && !s.trim().isEmpty()) {
+                                filtered.add(s.trim());
+                            }
+                        }
+                        CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_BLACKLIST.id, listToJson(filtered));
+                    })
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_blacklist"))
+                    .setExpanded(true)
+                    .setInsertInFront(true)
+                    .build());
+
+            List<String> currentWhitelist = parseFilterList(CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_WHITELIST.id));
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrList(new TranslatableText("mineds.config.option.advancement_whitelist"), new ArrayList<>(currentWhitelist))
+                    .setDefaultValue(new ArrayList<>())
+                    .setSaveConsumer(newValue -> {
+                        List<String> filtered = new ArrayList<>();
+                        for (String s : newValue) {
+                            if (s != null && !s.trim().isEmpty()) {
+                                filtered.add(s.trim());
+                            }
+                        }
+                        CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_WHITELIST.id, listToJson(filtered));
+                    })
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_whitelist"))
+                    .setExpanded(true)
+                    .setInsertInFront(true)
+                    .build());
+
+            inGameBehaviourAdvancement.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.advancement_prompt"), CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_PROMPT.id))
+                    .setDefaultValue(ConfigOption.ADVANCEMENT_PROMPT.defaultValue)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_PROMPT.id, newValue))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_prompt"))
                     .build());
         }
 
         return builder.build();
+    }
+    
+    /**
+     * Parses JSON string to list for the filter config.
+     * 
+     * @param json the JSON string
+     * @return the list of filter patterns
+     */
+    private static List<String> parseFilterList(String json) {
+        try {
+            return MineDS.GSON.fromJson(json, new com.google.gson.reflect.TypeToken<List<String>>(){}.getType());
+        } catch (Exception e) {
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * Converts list to JSON string for storage.
+     * 
+     * @param list the list to convert
+     * @return JSON string
+     */
+    private static String listToJson(List<String> list) {
+        return MineDS.GSON.toJson(list);
     }
 }

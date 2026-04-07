@@ -14,7 +14,12 @@ public enum ConfigOption {
     AI_NAME("ai_name", "DeepSeek"),
 
     // In-game advancement behaviour settings
-    ADVANCEMENT_CALL("advancement_call", "true"),
+    ADVANCEMENT_CALL("advancement_call", "false"),
+    ADVANCEMENT_FILTER_ENABLED("advancement_filter_enabled", "true"),
+    ADVANCEMENT_FILTER_MODE("advancement_filter_mode", AdvancementFilterMode.BLACKLIST.name),
+    ADVANCEMENT_BLACKLIST("advancement_blacklist", "[]"),
+    ADVANCEMENT_WHITELIST("advancement_whitelist", "[]"),
+    ADVANCEMENT_PROMPT("advancement_prompt", "[Advancement Triggered]\nTitle: {title}\nDescription: {description}\nID: {id}\n\nPlease respond to this advancement."),
     ;
 
     public final String id;

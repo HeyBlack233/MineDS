@@ -101,6 +101,25 @@ public class ConfigManager {
 
         boolean bl = false;
 
+        // Migrate old advancement_filters to new separate lists
+        if (cfgToCheck.containsKey("advancement_filters") && !cfgToCheck.containsKey(ConfigOption.ADVANCEMENT_BLACKLIST.id)) {
+            String oldFilters = cfgToCheck.get("advancement_filters");
+            String modeName = cfgToCheck.getOrDefault(ConfigOption.ADVANCEMENT_FILTER_MODE.id, AdvancementFilterMode.BLACKLIST.name);
+            AdvancementFilterMode mode = AdvancementFilterMode.fromName(modeName);
+
+            if (mode == AdvancementFilterMode.WHITELIST) {
+                cfgToCheck.put(ConfigOption.ADVANCEMENT_WHITELIST.id, oldFilters != null ? oldFilters : "[]");
+                cfgToCheck.put(ConfigOption.ADVANCEMENT_BLACKLIST.id, "[]");
+            } else {
+                cfgToCheck.put(ConfigOption.ADVANCEMENT_BLACKLIST.id, oldFilters != null ? oldFilters : "[]");
+                cfgToCheck.put(ConfigOption.ADVANCEMENT_WHITELIST.id, "[]");
+            }
+
+            cfgToCheck.remove("advancement_filters");
+            MineDS.LOGGER.info("[MineDS] Migrated advancement_filters to separate blacklist/whitelist lists (mode: {})", mode.name);
+            bl = true;
+        }
+
         for (Map.Entry<String, String> checkerEntry : checker.entrySet()) {
             if (!cfgToCheck.containsKey(checkerEntry.getKey())) {
                 cfgToCheck.put(checkerEntry.getKey(), checkerEntry.getValue());

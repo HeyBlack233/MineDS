@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "heyblack.mineds.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "AdvancementToastMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
