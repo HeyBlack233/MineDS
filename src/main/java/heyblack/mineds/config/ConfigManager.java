@@ -1,5 +1,6 @@
 package heyblack.mineds.config;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import heyblack.mineds.MineDS;
@@ -218,5 +219,101 @@ public class ConfigManager {
     public int getMaxAdvancementSessions() {
         try { return Integer.parseInt(get(ConfigOption.MAX_ADVANCEMENT_SESSIONS.id)); }
         catch (NumberFormatException e) { return 10; }
+    }
+
+    // ── AI Profile Template Helpers ──────────────────────────────────
+
+    /** Prefix used to identify template profiles that should be ignored. */
+    public static final String TEMPLATE_PREFIX = "__";
+
+    /**
+     * Returns all valid (non-template) AI profile names.
+     * Profiles whose name starts with "__" are considered templates and excluded.
+     */
+    public Map<String, AiProfile> getValidAiProfiles() {
+        Map<String, AiProfile> result = new LinkedHashMap<>();
+        String profilesJson = get(ConfigOption.AI_PROFILES.id);
+        if (profilesJson == null || profilesJson.equals("{}") || profilesJson.isEmpty()) {
+            // Fall back to legacy config as "default"
+            AiProfile legacy = buildAiProfileFromLegacyConfig("default");
+            result.put("default", legacy);
+            return result;
+        }
+        try {
+            JsonObject profiles = MineDS.GSON.fromJson(profilesJson, JsonObject.class);
+            for (Map.Entry<String, JsonElement> entry : profiles.entrySet()) {
+                String name = entry.getKey();
+                // Skip template profiles
+                if (name.startsWith(TEMPLATE_PREFIX)) continue;
+                result.put(name, AiProfile.fromJson(name, entry.getValue().getAsJsonObject()));
+            }
+        } catch (Exception e) {
+            MineDS.LOGGER.warn("[MineDS] Failed to parse ai_profiles, falling back to legacy config");
+            AiProfile legacy = buildAiProfileFromLegacyConfig("default");
+            result.put("default", legacy);
+        }
+        return result;
+    }
+
+    /**
+     * Creates a new AI profile template in the config.
+     * If "__template__" already exists, appends a number.
+     */
+    public String addAiProfileTemplate() {
+        String templateName = TEMPLATE_PREFIX + "template" + TEMPLATE_PREFIX;
+        String profilesJson = get(ConfigOption.AI_PROFILES.id);
+        JsonObject profiles;
+
+        if (profilesJson == null || profilesJson.equals("{}") || profilesJson.isEmpty()) {
+            profiles = new JsonObject();
+        } else {
+            try {
+                profiles = MineDS.GSON.fromJson(profilesJson, JsonObject.class);
+            } catch (Exception e) {
+                profiles = new JsonObject();
+            }
+        }
+
+        // If template exists, find next available number
+        int counter = 1;
+        while (profiles.has(templateName)) {
+            templateName = TEMPLATE_PREFIX + "template" + counter + TEMPLATE_PREFIX;
+            counter++;
+        }
+
+        // Create template with default values
+        JsonObject template = new JsonObject();
+        template.addProperty("url", get(ConfigOption.URL.id));
+        template.addProperty("model", get(ConfigOption.MODEL.id));
+        template.addProperty("api_key", "your-api-key-here");
+        template.addProperty("temperature", 0.7);
+        template.addProperty("max_tokens", 4096);
+        template.addProperty("system_message", get(ConfigOption.SYSTEM_MESSAGE.id));
+        profiles.add(templateName, template);
+
+        setConfig(ConfigOption.AI_PROFILES.id, MineDS.GSON.toJson(profiles));
+        return templateName;
+    }
+
+    /**
+     * Removes an AI profile by name.
+     * Returns true if the profile was removed, false if it didn't exist.
+     */
+    public boolean removeAiProfile(String name) {
+        String profilesJson = get(ConfigOption.AI_PROFILES.id);
+        if (profilesJson == null || profilesJson.equals("{}") || profilesJson.isEmpty()) {
+            return false;
+        }
+        try {
+            JsonObject profiles = MineDS.GSON.fromJson(profilesJson, JsonObject.class);
+            if (profiles.has(name)) {
+                profiles.remove(name);
+                setConfig(ConfigOption.AI_PROFILES.id, MineDS.GSON.toJson(profiles));
+                return true;
+            }
+        } catch (Exception e) {
+            MineDS.LOGGER.error("[MineDS] Failed to remove AI profile '{}': ", name, e);
+        }
+        return false;
     }
 }

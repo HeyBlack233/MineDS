@@ -18,7 +18,7 @@
   "mineds.config.option.advancement_blacklist": "黑名单",
   "mineds.config.option.advancement_whitelist": "白名单",
   "mineds.config.option.advancement_prompt": "成就消息模板",
-  "mineds.config.option.ai_profiles_desc": "AI 配置档案可以通过命令管理。每个档案包含 url, model, api_key, temperature, max_tokens, system_message 字段。",
+  "mineds.config.option.ai_profiles_desc": "使用 /mineds aiprofile add 命令创建预设模板，然后在配置文件中编辑。以 __ 开头的预设不会在列表中显示。",
   "mineds.config.option.command_session_ai": "命令会话 AI",
   "mineds.config.option.advancement_session_ai": "成就会话 AI",
   "mineds.config.option.session_ttl_hours": "会话过期时间（小时）",

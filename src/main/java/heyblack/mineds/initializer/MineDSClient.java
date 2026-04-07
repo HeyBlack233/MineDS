@@ -74,6 +74,8 @@ public class MineDSClient implements ClientModInitializer {
 
         ClientCommandManager.DISPATCHER.register(
                 ClientCommandManager.literal("mineds")
+                        .then(ClientCommandManager.literal("reload")
+                                .executes(context -> reloadConfig(context)))
                         .then(ClientCommandManager.literal("forceshutdown")
                                 .executes(context -> {
                                     context.getSource().getPlayer().sendMessage(
@@ -100,7 +102,28 @@ public class MineDSClient implements ClientModInitializer {
                                 .then(ClientCommandManager.literal("list")
                                         .executes(context -> listSessions(context)))
                                 .then(ClientCommandManager.literal("favorite")
-                                        .executes(context -> toggleFavoriteSession(context))))
+                                        .then(ClientCommandManager.argument("sessionId", string())
+                                                .suggests((ctx, builder) -> suggestSessionIds(ctx, builder))
+                                                .executes(context -> toggleFavoriteSession(context, getString(context, "sessionId"))))
+                                        .executes(context -> toggleFavoriteSession(context, null)))
+                                .then(ClientCommandManager.literal("unfavorite")
+                                        .then(ClientCommandManager.argument("sessionId", string())
+                                                .suggests((ctx, builder) -> suggestSessionIds(ctx, builder))
+                                                .executes(context -> unfavoriteSession(context, getString(context, "sessionId"))))
+                                        .executes(context -> unfavoriteSession(context, null)))
+                                .then(ClientCommandManager.literal("rename")
+                                        .then(ClientCommandManager.argument("sessionId", string())
+                                                .suggests((ctx, builder) -> suggestSessionIds(ctx, builder))
+                                                .then(ClientCommandManager.argument("newName", greedyString())
+                                                        .executes(context -> renameSession(context, getString(context, "sessionId"), getString(context, "newName")))))))
+                        .then(ClientCommandManager.literal("aiprofile")
+                                .then(ClientCommandManager.literal("list")
+                                        .executes(context -> listAiProfiles(context)))
+                                .then(ClientCommandManager.literal("add")
+                                        .executes(context -> addAiProfileTemplate(context)))
+                                .then(ClientCommandManager.literal("remove")
+                                        .then(ClientCommandManager.argument("name", string())
+                                                .executes(context -> removeAiProfile(context, getString(context, "name"))))))
                         .then(ClientCommandManager.literal("advancementfilter")
                                 .then(ClientCommandManager.argument("enabled", bool())
                                         .executes(context -> setAdvancementFilterEnabled(context, getBool(context, "enabled"))))
@@ -338,25 +361,241 @@ public class MineDSClient implements ClientModInitializer {
         for (SessionType type : SessionType.values()) {
             heyblack.mineds.session.Session session = sm.getActiveSession(type);
             if (session != null) {
-                message.append(new LiteralText(String.format("  %s: %s (messages: %d, AI: %s, fav: %s)\n",
-                        type, session.getSessionId(), session.getContext().size(), session.getAssignedAi(), session.isFavorite() ? "yes" : "no")));
+                String name = session.getSessionName() != null && !session.getSessionName().isEmpty()
+                        ? session.getSessionName()
+                        : "(unnamed)";
+                message.append(new LiteralText(String.format("  [%s] %s (messages: %d, AI: %s)\n",
+                        session.getSessionId(), name, session.getContext().size(), session.getAssignedAi())));
             } else {
                 message.append(new LiteralText("  " + type + ": (none)\n"));
             }
+        }
+        // Show favorite sessions
+        MutableText favMessage = new LiteralText("Favorite Sessions:\n");
+        boolean hasFavorites = false;
+        for (heyblack.mineds.session.Session session : sm.getAllFavoriteSessions()) {
+            hasFavorites = true;
+            String name = session.getSessionName() != null && !session.getSessionName().isEmpty()
+                    ? session.getSessionName()
+                    : "(unnamed)";
+            favMessage.append(new LiteralText(String.format("  [%s] %s (messages: %d, AI: %s, type: %s)\n",
+                    session.getSessionId(), name, session.getContext().size(), session.getAssignedAi(), session.getType())));
+        }
+        if (!hasFavorites) {
+            favMessage.append(new LiteralText("  (none)\n"));
+        }
+        // Show historical sessions on disk
+        MutableText histMessage = new LiteralText("Historical Sessions:\n");
+        boolean hasHistorical = false;
+        for (heyblack.mineds.session.Session session : sm.getHistoricalSessions()) {
+            hasHistorical = true;
+            String name = session.getSessionName() != null && !session.getSessionName().isEmpty()
+                    ? session.getSessionName()
+                    : "(unnamed)";
+            histMessage.append(new LiteralText(String.format("  [%s] %s (messages: %d, AI: %s, type: %s)\n",
+                    session.getSessionId(), name, session.getContext().size(), session.getAssignedAi(), session.getType())));
+        }
+        if (!hasHistorical) {
+            histMessage.append(new LiteralText("  (none)\n"));
+        }
+        player.sendMessage(getChatPrefix().append(message).append(favMessage).append(histMessage), false);
+        return 1;
+    }
+
+    /**
+     * Provides suggestions for session IDs.
+     */
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestSessionIds(
+            CommandContext<FabricClientCommandSource> ctx, SuggestionsBuilder builder) {
+        SessionManager sm = SessionManager.getInstance();
+        String remaining = builder.getRemaining().toLowerCase();
+
+        heyblack.mineds.session.Session cmdSession = sm.getActiveSession(SessionType.COMMAND);
+        if (cmdSession != null && cmdSession.getSessionId().toLowerCase().contains(remaining)) {
+            builder.suggest(cmdSession.getSessionId());
+        }
+
+        heyblack.mineds.session.Session advSession = sm.getActiveSession(SessionType.ADVANCEMENT);
+        if (advSession != null && advSession.getSessionId().toLowerCase().contains(remaining)) {
+            builder.suggest(advSession.getSessionId());
+        }
+
+        return java.util.concurrent.CompletableFuture.completedFuture(builder.build());
+    }
+
+    private static int toggleFavoriteSession(CommandContext<FabricClientCommandSource> context, String sessionId) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        SessionManager sm = SessionManager.getInstance();
+
+        heyblack.mineds.session.Session session;
+        if (sessionId != null && !sessionId.isEmpty()) {
+            session = sm.findSession(sessionId);
+            if (session == null) {
+                player.sendMessage(getChatPrefix().append(new LiteralText("Session not found: " + sessionId).formatted(Formatting.RED)), false);
+                return 0;
+            }
+        } else {
+            session = sm.getActiveSession(SessionType.COMMAND);
+            if (session == null) {
+                player.sendMessage(getChatPrefix().append(new LiteralText("No active command session.").formatted(Formatting.YELLOW)), false);
+                return 0;
+            }
+            sessionId = session.getSessionId();
+        }
+
+        // If already favorited, do nothing (use unfavorite command instead)
+        if (session.isFavorite()) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("Session [" + sessionId + "] is already favorited. Use /mineds session unfavorite to remove.").formatted(Formatting.YELLOW)), false);
+            return 0;
+        }
+
+        session.toggleFavorite();
+        // Move to favorites on disk
+        try {
+            String dirName = session.getDirectoryName();
+            if (dirName != null) {
+                heyblack.mineds.storage.SessionStorage.moveSession(session, dirName, true);
+                sm.updateFavoriteStatus(session.getSessionId(), true);
+            }
+        } catch (java.io.IOException e) {
+            MineDS.LOGGER.error("[MineDS] Failed to move session to favorites: ", e);
+            player.sendMessage(getChatPrefix().append(new LiteralText("Failed to move session: " + e.getMessage()).formatted(Formatting.RED)), false);
+            return 0;
+        }
+
+        player.sendMessage(getChatPrefix().append(new LiteralText("Session [" + sessionId + "] favorited").formatted(Formatting.GREEN)), false);
+        return 1;
+    }
+
+    private static int unfavoriteSession(CommandContext<FabricClientCommandSource> context, String sessionId) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        SessionManager sm = SessionManager.getInstance();
+
+        heyblack.mineds.session.Session session;
+        if (sessionId != null && !sessionId.isEmpty()) {
+            session = sm.findSession(sessionId);
+            if (session == null) {
+                player.sendMessage(getChatPrefix().append(new LiteralText("Session not found: " + sessionId).formatted(Formatting.RED)), false);
+                return 0;
+            }
+        } else {
+            // Get most recent favorite session
+            session = sm.getRecentFavoriteSession(SessionType.COMMAND);
+            if (session == null) {
+                player.sendMessage(getChatPrefix().append(new LiteralText("No favorited command session.").formatted(Formatting.YELLOW)), false);
+                return 0;
+            }
+            sessionId = session.getSessionId();
+        }
+
+        if (!session.isFavorite()) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("Session [" + sessionId + "] is not favorited.").formatted(Formatting.YELLOW)), false);
+            return 0;
+        }
+
+        session.toggleFavorite();
+        // Move back to sessions on disk
+        try {
+            String dirName = session.getDirectoryName();
+            if (dirName != null) {
+                heyblack.mineds.storage.SessionStorage.moveSession(session, dirName, false);
+                sm.updateFavoriteStatus(session.getSessionId(), false);
+            }
+        } catch (java.io.IOException e) {
+            MineDS.LOGGER.error("[MineDS] Failed to move session from favorites: ", e);
+            player.sendMessage(getChatPrefix().append(new LiteralText("Failed to move session: " + e.getMessage()).formatted(Formatting.RED)), false);
+            return 0;
+        }
+
+        player.sendMessage(getChatPrefix().append(new LiteralText("Session [" + sessionId + "] unfavorited").formatted(Formatting.GREEN)), false);
+        return 1;
+    }
+
+    private static int renameSession(CommandContext<FabricClientCommandSource> context, String sessionId, String newName) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        SessionManager sm = SessionManager.getInstance();
+
+        heyblack.mineds.session.Session session = sm.findSession(sessionId);
+        if (session == null) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("Session not found: " + sessionId).formatted(Formatting.RED)), false);
+            return 0;
+        }
+
+        if (newName == null || newName.trim().isEmpty()) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("Name cannot be empty.").formatted(Formatting.RED)), false);
+            return 0;
+        }
+
+        session.setSessionName(newName.trim());
+        player.sendMessage(getChatPrefix().append(new LiteralText("Session [" + sessionId + "] renamed to: " + newName)), false);
+        return 1;
+    }
+
+    // ── Config Reload Command ────────────────────────────────────────
+
+    private static int reloadConfig(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        try {
+            configManager.loadConfig();
+            // Re-initialize session manager with updated config
+            SessionManager sm = SessionManager.getInstance();
+            sm.cleanupByCount();
+            player.sendMessage(getChatPrefix().append(new LiteralText("Configuration reloaded successfully.").formatted(Formatting.GREEN)), false);
+            return 1;
+        } catch (Exception e) {
+            MineDS.LOGGER.error("[MineDS] Failed to reload config: ", e);
+            player.sendMessage(getChatPrefix().append(new LiteralText("Failed to reload config: " + e.getMessage()).formatted(Formatting.RED)), false);
+            return 0;
+        }
+    }
+
+    // ── AI Profile Commands ─────────────────────────────────────────
+
+    private static int listAiProfiles(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        Map<String, AiProfile> profiles = configManager.getValidAiProfiles();
+        if (profiles.isEmpty()) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("No AI profiles configured.").formatted(Formatting.YELLOW)), false);
+            return 1;
+        }
+        MutableText message = new LiteralText("AI Profiles:\n");
+        for (Map.Entry<String, AiProfile> entry : profiles.entrySet()) {
+            AiProfile p = entry.getValue();
+            message.append(new LiteralText(String.format("  %s - model: %s, url: %s\n",
+                    entry.getKey(), p.getModel(), p.getUrl())));
         }
         player.sendMessage(getChatPrefix().append(message), false);
         return 1;
     }
 
-    private static int toggleFavoriteSession(CommandContext<FabricClientCommandSource> context) {
+    private static int addAiProfileTemplate(CommandContext<FabricClientCommandSource> context) {
         ClientPlayerEntity player = context.getSource().getPlayer();
-        heyblack.mineds.session.Session session = SessionManager.getInstance().getActiveSession(SessionType.COMMAND);
-        if (session == null) {
-            player.sendMessage(getChatPrefix().append(new LiteralText("No active command session.").formatted(Formatting.YELLOW)), false);
+        String templateName = configManager.addAiProfileTemplate();
+        player.sendMessage(getChatPrefix().append(new LiteralText(
+                "AI profile template '" + templateName + "' created.\n" +
+                "Please do the following:\n" +
+                "1. Open the config file\n" +
+                "2. Find ai_profiles." + templateName + "\n" +
+                "3. Modify parameters (model, API Key, temperature, etc.)\n" +
+                "4. Rename it to a meaningful name (must not start with __)\n" +
+                "5. Use /mineds reload to apply changes"
+        )), false);
+        return 1;
+    }
+
+    private static int removeAiProfile(CommandContext<FabricClientCommandSource> context, String name) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        // Prevent removing templates
+        if (name.startsWith(ConfigManager.TEMPLATE_PREFIX)) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("Cannot remove template profiles (names starting with __).").formatted(Formatting.YELLOW)), false);
             return 0;
         }
-        session.toggleFavorite();
-        player.sendMessage(getChatPrefix().append(new LiteralText("Session " + session.getSessionId() + " " + (session.isFavorite() ? "favorited" : "unfavorited"))), false);
-        return 1;
+        boolean removed = configManager.removeAiProfile(name);
+        if (removed) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("AI profile '" + name + "' removed.").formatted(Formatting.GREEN)), false);
+        } else {
+            player.sendMessage(getChatPrefix().append(new LiteralText("AI profile '" + name + "' not found.").formatted(Formatting.RED)), false);
+        }
+        return removed ? 1 : 0;
     }
 }

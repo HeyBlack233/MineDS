@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.stream.Stream;
@@ -103,8 +104,9 @@ public class LogManager {
     public static JsonObject createLogEntry(Session session, String model, String url,
                                              JsonObject inputSummary, JsonObject output,
                                              long durationMs, String error) {
+        String localTime = LocalDateTime.now(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
         JsonObject entry = new JsonObject();
-        entry.addProperty("timestamp", java.time.Instant.now().toString());
+        entry.addProperty("timestamp", localTime);
         entry.addProperty("sessionId", session.getSessionId());
         entry.addProperty("type", session.getType().name());
         entry.addProperty("status", error == null ? "SUCCESS" : "ERROR");

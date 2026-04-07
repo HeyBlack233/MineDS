@@ -12,6 +12,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,7 +26,10 @@ import java.util.List;
  */
 public abstract class Session {
 
+    private static final DateTimeFormatter LOCAL_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
     protected final String sessionId;
+    protected String sessionName;
     protected final SessionType type;
     protected final List<AbstractMessage> context;
     protected final Instant createdAt;
@@ -38,6 +44,7 @@ public abstract class Session {
     protected Session(SessionType type) {
         this.type = type;
         this.sessionId = generateSessionId();
+        this.sessionName = "";
         this.context = new ArrayList<>();
         this.createdAt = Instant.now();
         this.lastActiveAt = Instant.now();
@@ -49,12 +56,29 @@ public abstract class Session {
     /** Constructor for deserialization */
     protected Session(String sessionId, SessionType type, Instant createdAt, Instant lastActiveAt, String assignedAi) {
         this.sessionId = sessionId;
+        this.sessionName = "";
         this.type = type;
         this.context = new ArrayList<>();
         this.createdAt = createdAt;
         this.lastActiveAt = lastActiveAt;
         this.isFavorite = false;
         this.assignedAi = assignedAi;
+    }
+
+    /** Sets the session display name. */
+    public void setSessionName(String name) {
+        this.sessionName = name;
+        persist();
+    }
+
+    /** Converts an Instant to local time string (no timezone). */
+    protected static String toLocalTimeString(Instant instant) {
+        return LocalDateTime.ofInstant(instant, ZoneId.systemDefault()).format(LOCAL_TIME_FORMATTER);
+    }
+
+    /** Parses a local time string back to Instant. */
+    protected static Instant fromLocalTimeString(String str) {
+        return LocalDateTime.parse(str, LOCAL_TIME_FORMATTER).toInstant(ZoneId.systemDefault().getRules().getOffset(Instant.now()));
     }
 
     /** Generate a unique session ID. */
@@ -83,7 +107,7 @@ public abstract class Session {
                 directoryName = SessionStorage.generateDirectoryName();
                 MineDS.LOGGER.info("[MineDS] Creating new directory for session {}: {}", sessionId, directoryName);
             }
-            this.storagePath = SessionStorage.saveSession(this, directoryName);
+            this.storagePath = SessionStorage.saveSession(this, directoryName, isFavorite);
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to persist session {}: {}", sessionId, e.getMessage());
         }
@@ -100,12 +124,10 @@ public abstract class Session {
         return Collections.unmodifiableList(context);
     }
 
-    /** Clears the conversation context and resets storage info (new directory on next persist). */
+    /** Clears the conversation context but keeps the same storage directory. */
     public void clearContext() {
         context.clear();
-        // Reset storage info so next persist creates a new directory
-        this.storagePath = null;
-        this.directoryName = null;
+        // Do NOT reset storage info - keep using the same directory for this session
     }
 
     /** Toggles the favorite status of this session. */
@@ -125,9 +147,10 @@ public abstract class Session {
     public JsonObject toJson() {
         JsonObject json = new JsonObject();
         json.addProperty("sessionId", sessionId);
+        json.addProperty("sessionName", sessionName);
         json.addProperty("type", type.name());
-        json.addProperty("createdAt", createdAt.toString());
-        json.addProperty("lastActiveAt", lastActiveAt.toString());
+        json.addProperty("createdAt", toLocalTimeString(createdAt));
+        json.addProperty("lastActiveAt", toLocalTimeString(lastActiveAt));
         json.addProperty("assignedAi", assignedAi);
 
         JsonArray contextArray = new JsonArray();
@@ -158,9 +181,10 @@ public abstract class Session {
         SessionType type = SessionType.valueOf(typeName);
 
         String sessionId = json.get("sessionId").getAsString();
-        Instant createdAt = Instant.parse(json.get("createdAt").getAsString());
-        Instant lastActiveAt = Instant.parse(json.get("lastActiveAt").getAsString());
+        Instant createdAt = fromLocalTimeString(json.get("createdAt").getAsString());
+        Instant lastActiveAt = fromLocalTimeString(json.get("lastActiveAt").getAsString());
         String assignedAi = json.has("assignedAi") ? json.get("assignedAi").getAsString() : "default";
+        String sessionName = json.has("sessionName") ? json.get("sessionName").getAsString() : "";
 
         Session session;
         if (type == SessionType.COMMAND) {
@@ -170,6 +194,9 @@ public abstract class Session {
         } else {
             throw new IllegalArgumentException("Unknown session type: " + typeName);
         }
+
+        // Restore sessionName (backward compat: generate if missing)
+        session.sessionName = sessionName;
 
         // Restore context
         if (json.has("context")) {
@@ -199,6 +226,7 @@ public abstract class Session {
     // ── Getters ───────────────────────────────────────────────────────
 
     public String getSessionId() { return sessionId; }
+    public String getSessionName() { return sessionName; }
     public SessionType getType() { return type; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getLastActiveAt() { return lastActiveAt; }

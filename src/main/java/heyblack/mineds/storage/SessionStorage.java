@@ -76,9 +76,10 @@ public class SessionStorage {
     /**
      * Saves a session to disk in its type's directory.
      * Uses atomic write (temp file + rename) for safety.
+     * @param isFavorite if true, saves to fav_sessions/ instead of sessions/
      */
-    public static Path saveSession(Session session, String directoryName) throws IOException {
-        Path typeDir = getSessionDirectory(session.getType(), directoryName, true); // true = sessions/, not fav_sessions/
+    public static Path saveSession(Session session, String directoryName, boolean isFavorite) throws IOException {
+        Path typeDir = getSessionDirectory(session.getType(), directoryName, !isFavorite);
         Files.createDirectories(typeDir);
 
         Path targetFile = typeDir.resolve("session.json");
@@ -136,10 +137,13 @@ public class SessionStorage {
 
     /**
      * Moves a session directory between sessions/ and fav_sessions/.
+     * @param toFavorites true = move to fav_sessions, false = move back to sessions
      */
     public static void moveSession(Session session, String directoryName, boolean toFavorites) throws IOException {
-        Path sourceDir = getSessionDirectory(session.getType(), directoryName, !toFavorites);
-        Path targetDir = getSessionDirectory(session.getType(), directoryName, toFavorites);
+        // toFavorites=true: source=sessions(inSessions=true), target=fav_sessions(inSessions=false)
+        // toFavorites=false: source=fav_sessions(inSessions=false), target=sessions(inSessions=true)
+        Path sourceDir = getSessionDirectory(session.getType(), directoryName, toFavorites);
+        Path targetDir = getSessionDirectory(session.getType(), directoryName, !toFavorites);
 
         if (!Files.exists(sourceDir)) {
             throw new IOException("Source session directory not found: " + sourceDir);

@@ -18,7 +18,7 @@
   "mineds.config.option.advancement_blacklist": "Blacklist",
   "mineds.config.option.advancement_whitelist": "Whitelist",
   "mineds.config.option.advancement_prompt": "Advancement Prompt Template",
-  "mineds.config.option.ai_profiles_desc": "AI profiles can be managed via commands. Each profile contains url, model, api_key, temperature, max_tokens, system_message fields.",
+  "mineds.config.option.ai_profiles_desc": "Use /mineds aiprofile add to create a template, then edit it in the config file. Profiles starting with __ are hidden from the list.",
   "mineds.config.option.command_session_ai": "Command Session AI",
   "mineds.config.option.advancement_session_ai": "Advancement Session AI",
   "mineds.config.option.session_ttl_hours": "Session TTL (Hours)",

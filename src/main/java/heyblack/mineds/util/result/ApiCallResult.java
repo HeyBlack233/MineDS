@@ -2,11 +2,17 @@ package heyblack.mineds.util.result;
 
 import com.google.gson.JsonObject;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+
 /**
  * Represents the result of an API call for logging purposes.
  * Does NOT store full input context - that's managed by Session.
  */
 public class ApiCallResult {
+    private static final DateTimeFormatter LOCAL_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+
     public final String sessionId;
     public final String sessionType;
     public final String model;
@@ -33,8 +39,9 @@ public class ApiCallResult {
 
     /** Converts this result to a JsonObject for serialization. */
     public JsonObject toJson() {
+        String localTime = LocalDateTime.now(ZoneId.systemDefault()).format(LOCAL_TIME_FORMATTER);
         JsonObject json = new JsonObject();
-        json.addProperty("timestamp", java.time.Instant.now().toString());
+        json.addProperty("timestamp", localTime);
         json.addProperty("sessionId", sessionId);
         json.addProperty("type", sessionType);
         json.addProperty("status", success ? "SUCCESS" : "ERROR");

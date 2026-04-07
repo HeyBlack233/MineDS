@@ -26,6 +26,8 @@ public class AdvancementSession extends Session {
 
     public AdvancementSession(String sessionId, Instant createdAt, Instant lastActiveAt, String assignedAi) {
         super(sessionId, SessionType.ADVANCEMENT, createdAt, lastActiveAt, assignedAi);
+        // Reset chain state on load since no API call is in progress after game restart
+        this.chainState = ChainState.IDLE;
     }
 
     @Override
@@ -69,6 +71,15 @@ public class AdvancementSession extends Session {
     public void setChainState(ChainState state) {
         this.chainState = state;
         MineDS.LOGGER.info("[MineDS] Advancement session {} state: {}", sessionId, state);
+        persist();
+    }
+
+    /** Sets the session name from the first advancement's title. */
+    public void setNameFromAdvancement(String title) {
+        if (this.sessionName == null || this.sessionName.isEmpty()) {
+            this.sessionName = "Advancement: " + title;
+            persist();
+        }
     }
 
     @Override

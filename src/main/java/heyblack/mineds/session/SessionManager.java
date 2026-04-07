@@ -60,21 +60,30 @@ public class SessionManager {
 
     /**
      * Loads all sessions from disk (both sessions/ and fav_sessions/).
+     * Note: ADVANCEMENT sessions are not loaded into active sessions to avoid
+     * reusing stale sessions from previous game sessions. They remain available
+     * as historical sessions on disk.
      */
     private void loadAllSessions() {
         for (SessionType type : SessionType.values()) {
             try {
-                List<Path> activeDirs = SessionStorage.listSessionDirectories(type, false);
-                for (Path dir : activeDirs) {
-                    try {
-                        Session session = SessionStorage.loadSession(dir);
-                        session.setStorageInfo(dir, dir.getFileName().toString());
-                        activeSessions.put(session.getSessionId(), session);
-                    } catch (IOException e) {
-                        MineDS.LOGGER.warn("[MineDS] Failed to load session from {}: {}", dir, e.getMessage());
+                // Skip loading ADVANCEMENT sessions into active sessions
+                // Each game session should start with a fresh advancement session
+                boolean loadActive = type != SessionType.ADVANCEMENT;
+
+                if (loadActive) {
+                    List<Path> activeDirs = SessionStorage.listSessionDirectories(type, false);
+                    for (Path dir : activeDirs) {
+                        try {
+                            Session session = SessionStorage.loadSession(dir);
+                            session.setStorageInfo(dir, dir.getFileName().toString());
+                            activeSessions.put(session.getSessionId(), session);
+                        } catch (IOException e) {
+                            MineDS.LOGGER.warn("[MineDS] Failed to load session from {}: {}", dir, e.getMessage());
+                        }
                     }
+                    activeSessionDirs.put(type, activeDirs.isEmpty() ? null : activeDirs.get(activeDirs.size() - 1).getFileName().toString());
                 }
-                activeSessionDirs.put(type, activeDirs.isEmpty() ? null : activeDirs.get(activeDirs.size() - 1).getFileName().toString());
 
                 List<Path> favDirs = SessionStorage.listSessionDirectories(type, true);
                 for (Path dir : favDirs) {
@@ -111,15 +120,7 @@ public class SessionManager {
         String dirName = activeSessionDirs.get(type);
         if (dirName == null) return null;
         return activeSessions.values().stream()
-                .filter(s -> {
-                    try {
-                        // Match by checking if session exists in active list
-                        return activeSessions.containsKey(s.getSessionId());
-                    } catch (Exception e) {
-                        return false;
-                    }
-                })
-                .filter(s -> s.getType() == type)
+                .filter(s -> dirName.equals(s.getDirectoryName()) && s.getType() == type)
                 .findFirst()
                 .orElse(null);
     }
@@ -137,7 +138,7 @@ public class SessionManager {
 
         String dirName = SessionStorage.generateDirectoryName();
         try {
-            Path savedPath = SessionStorage.saveSession(session, dirName);
+            Path savedPath = SessionStorage.saveSession(session, dirName, false);
             session.setStorageInfo(savedPath, dirName);
             activeSessionDirs.put(type, dirName);
             activeSessions.put(session.getSessionId(), session);
@@ -251,22 +252,21 @@ public class SessionManager {
     }
 
     /**
-     * Clears context for the active session and removes directory mapping.
-     * A new directory will be created on next persist().
+     * Clears context for the active session and removes it, so a new one will be created.
      */
     public void clearActiveSessionContext(SessionType type) {
         String oldDirName = activeSessionDirs.get(type);
         if (oldDirName != null) {
-            activeSessionDirs.remove(type);
-            Session session = activeSessions.values().stream()
+            Session sessionToRemove = activeSessions.values().stream()
                     .filter(s -> s.getType() == type)
                     .filter(s -> oldDirName.equals(s.getDirectoryName()))
                     .findFirst()
                     .orElse(null);
-            if (session != null) {
-                session.clearContext();
-                MineDS.LOGGER.info("[MineDS] Cleared context for {} session {}", type, session.getSessionId());
+            if (sessionToRemove != null) {
+                activeSessions.remove(sessionToRemove.getSessionId());
+                MineDS.LOGGER.info("[MineDS] Cleared context and removed {} session {}", type, sessionToRemove.getSessionId());
             }
+            activeSessionDirs.remove(type);
         }
     }
 
@@ -278,5 +278,73 @@ public class SessionManager {
     }
 
     public Duration getSessionTtl() { return Duration.ofHours(24); }
+
+    /** Finds a session by ID from both active and favorite sessions. */
+    public Session findSession(String sessionId) {
+        Session session = activeSessions.get(sessionId);
+        if (session != null) return session;
+        return favoriteSessions.get(sessionId);
+    }
+
+    /** Updates the favorite status of a session in memory after disk move. */
+    public void updateFavoriteStatus(String sessionId, boolean isFavorite) {
+        Session session = activeSessions.get(sessionId);
+        if (session == null) session = favoriteSessions.get(sessionId);
+        if (session == null) return;
+
+        if (isFavorite) {
+            favoriteSessions.put(sessionId, session);
+            activeSessions.remove(sessionId);
+        } else {
+            activeSessions.put(sessionId, session);
+            favoriteSessions.remove(sessionId);
+        }
+    }
+
+    /** Gets the most recent favorite session of a given type. */
+    public Session getRecentFavoriteSession(SessionType type) {
+        String dirName = favoriteSessionDirs.get(type);
+        if (dirName == null) return null;
+        return favoriteSessions.values().stream()
+                .filter(s -> s.getType() == type)
+                .filter(s -> dirName.equals(s.getDirectoryName()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /** Returns all favorite sessions across all types. */
+    public List<Session> getAllFavoriteSessions() {
+        return new ArrayList<>(favoriteSessions.values());
+    }
+
+    /**
+     * Loads historical sessions from disk that are not currently in memory.
+     * Returns sessions from the sessions/ directory (non-favorite) excluding
+     * those already loaded in activeSessions.
+     */
+    public List<Session> getHistoricalSessions() {
+        List<Session> historical = new ArrayList<>();
+        for (SessionType type : SessionType.values()) {
+            try {
+                List<Path> dirs = heyblack.mineds.storage.SessionStorage.listSessionDirectories(type, false);
+                for (Path dir : dirs) {
+                    try {
+                        Session session = heyblack.mineds.storage.SessionStorage.loadSession(dir);
+                        // Skip if already in active sessions
+                        if (!activeSessions.containsKey(session.getSessionId())) {
+                            session.setStorageInfo(dir, dir.getFileName().toString());
+                            historical.add(session);
+                        }
+                    } catch (java.io.IOException e) {
+                        MineDS.LOGGER.warn("[MineDS] Failed to load historical session from {}: {}", dir, e.getMessage());
+                    }
+                }
+            } catch (java.io.IOException e) {
+                MineDS.LOGGER.warn("[MineDS] Failed to list historical sessions for {}: {}", type, e.getMessage());
+            }
+        }
+        return historical;
+    }
+
     public static void resetInstance() { instance = null; }
 }

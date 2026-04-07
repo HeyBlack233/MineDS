@@ -52,9 +52,8 @@ public class RegularResponseHandler implements ResponseHandler {
         client.execute(() -> player.sendMessage(MineDSClient.getChatPrefix().append(new LiteralText("Output complete").formatted(Formatting.ITALIC)), false));
 
         // Generate input summary (without full context)
-        String lastUserMsg = message.length() > 200 ? message.substring(0, 200) + "..." : message;
         JsonObject inputSummary = heyblack.mineds.storage.LogManager.generateInputSummary(
-                session.getContext(), lastUserMsg, configManager.getAiProfile(session.getAssignedAi()).getModel());
+                session.getContext(), message, configManager.getAiProfile(session.getAssignedAi()).getModel());
 
         // Build output summary
         JsonObject output = new JsonObject();

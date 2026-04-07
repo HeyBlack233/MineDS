@@ -35,7 +35,11 @@ public class AdvancementListener {
     private static final MinecraftClient CLIENT = MinecraftClient.getInstance();
 
     public static void onAdvancementGranted(Advancement advancement) {
-        if (!Boolean.parseBoolean(configManager.get(ConfigOption.ADVANCEMENT_CALL.id))) return;
+        MineDS.LOGGER.info("[MineDS] Advancement event received: {}", advancement.getId());
+        if (!Boolean.parseBoolean(configManager.get(ConfigOption.ADVANCEMENT_CALL.id))) {
+            MineDS.LOGGER.info("[MineDS] Advancement call is disabled (advancement_call=false)");
+            return;
+        }
 
         AdvancementDisplay display = advancement.getDisplay();
         if (display == null) {
@@ -54,6 +58,7 @@ public class AdvancementListener {
         MineDS.LOGGER.info("[MineDS] Processing advancement: {} ({})", title, advancementId);
 
         AdvancementSession session = (AdvancementSession) SessionManager.getInstance().getOrCreateSession(SessionType.ADVANCEMENT);
+        session.setNameFromAdvancement(title);
         String aiName = configManager.getAiNameForSessionType(SessionType.ADVANCEMENT);
         session.setAssignedAi(aiName);
 
@@ -112,12 +117,17 @@ public class AdvancementListener {
                     }
                 });
             } finally {
-                processBufferedAdvancements(session);
+                // Process any buffered advancements that arrived during this call
+                processNextBufferedAdvancement(session);
             }
         });
     }
 
-    private static void processBufferedAdvancements(AdvancementSession session) {
+    /**
+     * Processes the next buffered advancement if any.
+     * Sets chainState to IDLE when buffer is empty.
+     */
+    private static void processNextBufferedAdvancement(AdvancementSession session) {
         if (session.hasPendingAdvancements()) {
             List<PendingAdvancement> batch = session.drainPendingAdvancements();
             String mergedMessage = generateBatchAdvancementMessage(batch);
@@ -129,6 +139,7 @@ public class AdvancementListener {
                 }
             });
 
+            // Keep chainState as PROCESSING while processing buffered advancements
             MineDSClient.getExecutor().submit(() -> {
                 SentenceSplitter splitter = new SentenceSplitter();
                 try {
@@ -138,11 +149,17 @@ public class AdvancementListener {
                 } catch (Exception e) {
                     MineDS.LOGGER.error("[MineDS] Error in batch advancement API call: ", e);
                 } finally {
-                    processBufferedAdvancements(session);
+                    // Check again for more buffered advancements
+                    processNextBufferedAdvancement(session);
                 }
             });
         } else {
+            // No more pending advancements, set to IDLE
             session.setChainState(ChainState.IDLE);
+            MineDS.LOGGER.info("[MineDS] Advancement session {} returned to IDLE state", session.getSessionId());
+            // Clear active session so next advancement creates a new one
+            heyblack.mineds.session.SessionManager.getInstance().clearActiveSessionContext(
+                    heyblack.mineds.session.SessionType.ADVANCEMENT);
         }
     }
 
