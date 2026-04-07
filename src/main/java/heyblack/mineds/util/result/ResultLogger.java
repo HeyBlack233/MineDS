@@ -1,183 +1,99 @@
 package heyblack.mineds.util.result;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.initializer.MineDSClient;
-import heyblack.mineds.util.message.RegularInputMessage;
+import heyblack.mineds.session.Session;
+import heyblack.mineds.storage.LogManager;
+import heyblack.mineds.storage.SessionStorage;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.LiteralText;
 import net.minecraft.util.Formatting;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.stream.Stream;
 
+/**
+ * Handles logging API call results to disk.
+ * Now uses Session-based storage: logs are saved in the session's time directory.
+ * Old logs are archived on first use.
+ */
 public class ResultLogger {
-    private static final ExecutorService EXECUTOR = Executors.newFixedThreadPool(1);
 
-    private static final String PREFIX = "MineDS_";
-    private static final String SUFFIX = ".json";
-    private static final Pattern PATTERN = Pattern.compile(PREFIX + "(\\d+)" + SUFFIX);
+    private static final DateTimeFormatter DIR_FORMATTER = DateTimeFormatter.ofPattern("yy-MM-dd_HH-mm");
+    private static boolean archiveInitialized = false;
 
-    private static final Path CACHE_PATH = MineDS.LOG_PATH.resolve(".index");
+    /**
+     * Logs an API call result.
+     * The log is saved in the session's time directory alongside session.json.
+     *
+     * @param result    The API call result
+     * @param session   The session that made the call (for directory lookup)
+     */
+    public static void log(ApiCallResult result, Session session) {
+        // Archive old logs on first use
+        if (!archiveInitialized) {
+            archiveOldLogs();
+            archiveInitialized = true;
+        }
 
-    public static void log(ApiCallResult result) {
         try {
-            int i = getOrCreateIndex() + 1;
+            // Use the session's storage path directly
+            Path sessionDir = session.getStoragePath();
+            if (sessionDir == null) {
+                MineDS.LOGGER.warn("[MineDS] No session directory found for session {}, skipping log", session.getSessionId());
+                return;
+            }
 
-            String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
-            MineDS.LOGGER.info("[MineDS] Logging api call to " + fileName);
-
-            // write log file
-            Files.write(
-                    MineDS.LOG_PATH.resolve(fileName),
-                    MineDS.GSON.toJson(result).getBytes(StandardCharsets.UTF_8),
-                    StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.CREATE
-            );
-            // update cache file
-            Files.write(
-                    CACHE_PATH,
-                    String.valueOf(i).getBytes(),
-                    StandardOpenOption.WRITE,
-                    StandardOpenOption.TRUNCATE_EXISTING,
-                    StandardOpenOption.CREATE
-            );
+            // Save log in session directory
+            LogManager.saveLog(sessionDir, result.toJson());
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to log API call!", e);
             try {
                 MinecraftClient.getInstance().player.sendMessage(
-                        MineDSClient.getChatPrefix()
-                                .append(new LiteralText("Failed to log API call!").formatted(Formatting.RED)),
+                        MineDSClient.getChatPrefix().append(new LiteralText("Failed to log API call!").formatted(Formatting.RED)),
                         false
                 );
-
-            } catch (NullPointerException n) {
-
-            }
+            } catch (NullPointerException ignored) {}
         }
     }
 
-    public static List<RegularInputMessage> getContext() throws Exception {
-        List<RegularInputMessage> list = new ArrayList<>();
-
-        int i = getOrCreateIndex();
-
-        String fileName = String.format("%s%d%s", PREFIX, i, SUFFIX);
-
-        String logAsString = new String(Files.readAllBytes(MineDS.LOG_PATH.resolve(fileName)), StandardCharsets.UTF_8);
-        JsonObject root = MineDS.GSON.fromJson(logAsString, JsonObject.class);
-
-        JsonObject input = root.getAsJsonObject("input");
-        JsonArray messages = input.getAsJsonArray("messages");
-
-        for (JsonElement element : messages) {
-            JsonObject object = element.getAsJsonObject();
-
-            String roleIn = object.get("role").getAsString();
-            String contentIn = object.get("content").getAsString();
-
-            list.add(new RegularInputMessage(roleIn, contentIn));
-        }
-
-        JsonObject output = root.getAsJsonObject("output");
-        JsonObject message = output.getAsJsonArray("message").get(0).getAsJsonObject();
-
-        String roleOut = message.get("role").getAsString();
-        String contentOut = message.get("content").getAsString();
-
-        list.add(new RegularInputMessage(roleOut, contentOut));
-
-        return list;
-    }
-
-    /*
-    case: reading cache
-        case: index cache doesn't exist
-            index = has log file ? prev index : 1
-        case: index cache does exist
-            index = read from cache7
+    /**
+     * Archives old MineDS_*.json and .index files to archive/ directory.
      */
-    public static int getOrCreateIndex() throws IOException {
-        if (!Files.exists(CACHE_PATH)) {
-            int i;
-            try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-                if (files.findAny().isPresent()) {
-                    i = findMaxIndex();
-                } else {
-                    i = 0;
-                }
-                Files.write(CACHE_PATH, String.valueOf(i).getBytes());
+    private static void archiveOldLogs() {
+        try {
+            Path baseDir = MineDS.LOG_PATH;
+            Path archiveDir = baseDir.resolve("archive");
+            Files.createDirectories(archiveDir);
 
-                return i;
+            // Move .index
+            Path indexFile = baseDir.resolve(".index");
+            if (Files.exists(indexFile)) {
+                Files.move(indexFile, archiveDir.resolve(".index"), StandardCopyOption.REPLACE_EXISTING);
+                MineDS.LOGGER.info("[MineDS] Archived .index to archive/");
             }
-        } else {
-            return Integer.parseInt(new String(Files.readAllBytes(CACHE_PATH)));
-        }
-    }
 
-    /*
-    case: mod initializes
-        case: index cache doesn't exist
-            index = has log file ? prev index : 1
-        case: index cache does exist
-            index = has log file ? prev index : 1
-     */
-    public static void initializeCacheOnStartup() throws IOException {
-        int i = 0;
-            try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-                if (files.findAny().isPresent()) {
-                    i = findMaxIndex();
-                } else {
-                    i = 1;
-                }
-                Files.write(CACHE_PATH, String.valueOf(i).getBytes());
+            // Move MineDS_*.json
+            try (Stream<Path> files = Files.list(baseDir)) {
+                files.filter(Files::isRegularFile)
+                        .filter(p -> p.getFileName().toString().startsWith("MineDS_") && p.getFileName().toString().endsWith(".json"))
+                        .forEach(file -> {
+                            try {
+                                Files.move(file, archiveDir.resolve(file.getFileName().toString()), StandardCopyOption.REPLACE_EXISTING);
+                                MineDS.LOGGER.info("[MineDS] Archived {} to archive/", file.getFileName());
+                            } catch (IOException e) {
+                                MineDS.LOGGER.warn("[MineDS] Failed to archive {}: {}", file.getFileName(), e.getMessage());
+                            }
+                        });
             }
-    }
-
-    private static int findMaxIndex() throws IOException {
-        try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-            return files
-                    .map(Path::getFileName)
-                    .map(Path::toString)
-                    .map(PATTERN::matcher)
-                    .filter(Matcher::matches)
-                    .map(matcher -> Integer.parseInt(matcher.group(1)))
-                    .max(Comparator.naturalOrder())
-                    .orElse(0);
-        }
-    }
-
-    private static int findMaxIndexAsync() {
-        try (Stream<Path> files = Files.list(MineDS.LOG_PATH)) {
-             CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> files
-                            .map(Path::getFileName)
-                            .map(Path::toString)
-                            .map(PATTERN::matcher)
-                            .filter(Matcher::matches)
-                            .map(matcher -> Integer.parseInt(matcher.group(1)))
-                            .max(Comparator.naturalOrder())
-                            .orElse(0), EXECUTOR
-                    );
-             return future.get();
-        } catch (IOException | ExecutionException | InterruptedException e) {
-            MineDS.LOGGER.error("[MineDS] Failed to get index from cache!");
-            return 0;
+        } catch (IOException e) {
+            MineDS.LOGGER.error("[MineDS] Failed to archive old logs: ", e);
         }
     }
 }

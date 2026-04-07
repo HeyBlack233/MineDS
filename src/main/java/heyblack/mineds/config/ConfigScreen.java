@@ -55,6 +55,39 @@ public class ConfigScreen {
         }
 
         {
+            ConfigCategory multiAi = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.multi_ai"));
+            multiAi.addEntry(entryBuilder.startTextDescription(new TranslatableText("mineds.config.option.ai_profiles_desc")).build());
+
+            multiAi.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.command_session_ai"), CONFIG_MANAGER.get(ConfigOption.COMMAND_SESSION_AI.id))
+                    .setDefaultValue(ConfigOption.COMMAND_SESSION_AI.defaultValue)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.COMMAND_SESSION_AI.id, newValue))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.command_session_ai")).build());
+
+            multiAi.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.advancement_session_ai"), CONFIG_MANAGER.get(ConfigOption.ADVANCEMENT_SESSION_AI.id))
+                    .setDefaultValue(ConfigOption.ADVANCEMENT_SESSION_AI.defaultValue)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.ADVANCEMENT_SESSION_AI.id, newValue))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.advancement_session_ai")).build());
+
+            multiAi.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.session_ttl_hours"), CONFIG_MANAGER.getSessionTtlHours())
+                    .setDefaultValue(Integer.parseInt(ConfigOption.SESSION_TTL_HOURS.defaultValue))
+                    .setMin(1).setMax(168)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.SESSION_TTL_HOURS.id, String.valueOf(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.session_ttl_hours")).build());
+
+            multiAi.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_command_sessions"), CONFIG_MANAGER.getMaxCommandSessions())
+                    .setDefaultValue(Integer.parseInt(ConfigOption.MAX_COMMAND_SESSIONS.defaultValue))
+                    .setMin(1).setMax(100)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.MAX_COMMAND_SESSIONS.id, String.valueOf(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.max_command_sessions")).build());
+
+            multiAi.addEntry(entryBuilder.startIntField(new TranslatableText("mineds.config.option.max_advancement_sessions"), CONFIG_MANAGER.getMaxAdvancementSessions())
+                    .setDefaultValue(Integer.parseInt(ConfigOption.MAX_ADVANCEMENT_SESSIONS.defaultValue))
+                    .setMin(1).setMax(100)
+                    .setSaveConsumer(newValue -> CONFIG_MANAGER.setConfig(ConfigOption.MAX_ADVANCEMENT_SESSIONS.id, String.valueOf(newValue)))
+                    .setTooltip(new TranslatableText("mineds.config.tooltip.max_advancement_sessions")).build());
+        }
+
+        {
             ConfigCategory inGameBehaviourGeneral = builder.getOrCreateCategory(new TranslatableText("mineds.config.category.in_game_behaviour_general"));
 
             inGameBehaviourGeneral.addEntry(entryBuilder.startStrField(new TranslatableText("mineds.config.option.ai_name"), CONFIG_MANAGER.get(ConfigOption.AI_NAME.id))

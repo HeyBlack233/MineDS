@@ -2,11 +2,14 @@ package heyblack.mineds.initializer;
 
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
+import com.google.gson.JsonObject;
 import heyblack.mineds.MineDS;
 import heyblack.mineds.config.*;
-import heyblack.mineds.dsapi.ApiCallType;
 import heyblack.mineds.dsapi.DSApiHandler;
 import heyblack.mineds.dsapi.response.RegularResponseHandler;
+import heyblack.mineds.session.CommandSession;
+import heyblack.mineds.session.SessionManager;
+import heyblack.mineds.session.SessionType;
 import heyblack.mineds.util.result.ResultLogger;
 import heyblack.mineds.util.SentenceSplitter;
 import net.fabricmc.api.ClientModInitializer;
@@ -23,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -48,7 +52,8 @@ public class MineDSClient implements ClientModInitializer {
     public void onInitializeClient() {
         try {
             Files.createDirectories(MineDS.LOG_PATH);
-            ResultLogger.initializeCacheOnStartup();
+            // SessionStorage.initialize() is called in SessionManager constructor
+            SessionManager.getInstance();
         } catch (IOException e) {
             MineDS.LOGGER.error("[MineDS] Failed to create log dir!");
             throw new RuntimeException(e);
@@ -91,6 +96,11 @@ public class MineDSClient implements ClientModInitializer {
                                     );
                                     return 0;
                                 }))
+                        .then(ClientCommandManager.literal("session")
+                                .then(ClientCommandManager.literal("list")
+                                        .executes(context -> listSessions(context)))
+                                .then(ClientCommandManager.literal("favorite")
+                                        .executes(context -> toggleFavoriteSession(context))))
                         .then(ClientCommandManager.literal("advancementfilter")
                                 .then(ClientCommandManager.argument("enabled", bool())
                                         .executes(context -> setAdvancementFilterEnabled(context, getBool(context, "enabled"))))
@@ -132,34 +142,39 @@ public class MineDSClient implements ClientModInitializer {
         String message = getString(context, "message");
         ClientPlayerEntity player = context.getSource().getPlayer();
 
-        player.sendMessage(
-                getChatPrefix()
-                        .append(new LiteralText(player.getName().asString())
-                                .formatted(Formatting.LIGHT_PURPLE))
-                        .append(new LiteralText(": " + message)
-                                .formatted(Formatting.WHITE)),
-                false
-        );
+        player.sendMessage(getChatPrefix().append(new LiteralText(player.getName().asString()).formatted(Formatting.LIGHT_PURPLE)).append(new LiteralText(": " + message).formatted(Formatting.WHITE)), false);
+
+        CommandSession session = (CommandSession) SessionManager.getInstance().getOrCreateSession(SessionType.COMMAND);
+        session.setLastCommandType(pullContentFromLastChat ? "dsc" : "ds");
+        if (!pullContentFromLastChat) SessionManager.getInstance().clearActiveSessionContext(SessionType.COMMAND);
+
+        String aiName = configManager.getAiNameForSessionType(SessionType.COMMAND);
+        session.setAssignedAi(aiName);
+
+        // Get AI profile to add system message to context if not present
+        AiProfile aiProfile = configManager.getAiProfile(aiName);
+        boolean hasSystemMessage = session.getContext().stream().anyMatch(m -> "system".equals(m.getRole()));
+        if (!hasSystemMessage && aiProfile.getSystemMessage() != null && !aiProfile.getSystemMessage().isEmpty()) {
+            session.addMessage(new heyblack.mineds.util.message.RegularInputMessage("system", aiProfile.getSystemMessage()));
+        }
+
+        // Add user message to session context (will be persisted automatically)
+        session.addMessage(new heyblack.mineds.util.message.RegularInputMessage("user", message));
+
+        // Update SessionManager's directory mapping if persist() created a new directory
+        if (session.getDirectoryName() != null) {
+            SessionManager.getInstance().updateActiveSessionDirectory(SessionType.COMMAND, session.getDirectoryName());
+        }
 
         requestExecutor.submit(() -> {
             SentenceSplitter splitter = new SentenceSplitter();
-
             try {
-                DSApiHandler.callApiStreaming(
-                        message,
-                        configManager.getConfig(),
-                        pullContentFromLastChat,
-                        ApiCallType.REGULAR,
-                        new RegularResponseHandler(splitter,
-                                CLIENT,
-                                DSApiHandler.populateRequestBody(message, configManager.getConfig(), pullContentFromLastChat)
-                        )
-                );
+                JsonObject inputRequest = DSApiHandler.populateRequestBody(message, session, aiProfile);
+                DSApiHandler.callApiStreaming(message, session, new RegularResponseHandler(splitter, CLIENT, inputRequest));
             } catch (Exception e) {
-                MineDS.LOGGER.error("[MineDS] Error: " + e);
+                MineDS.LOGGER.error("[MineDS] Error: ", e);
             }
         });
-
         return 1;
     }
 
@@ -309,12 +324,39 @@ public class MineDSClient implements ClientModInitializer {
      */
     private static int setAdvancementFilterMode(CommandContext<FabricClientCommandSource> context, AdvancementFilterMode mode) {
         ClientPlayerEntity player = context.getSource().getPlayer();
-
         configManager.setConfig(ConfigOption.ADVANCEMENT_FILTER_MODE.id, mode.name);
-        player.sendMessage(
-                getChatPrefix().append(new LiteralText("Filter mode set to: " + mode.name)),
-                false
-        );
+        player.sendMessage(getChatPrefix().append(new LiteralText("Filter mode set to: " + mode.name)), false);
+        return 1;
+    }
+
+    // ── Session Management Commands ───────────────────────────────────
+
+    private static int listSessions(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        SessionManager sm = SessionManager.getInstance();
+        MutableText message = new LiteralText("Active Sessions:\n");
+        for (SessionType type : SessionType.values()) {
+            heyblack.mineds.session.Session session = sm.getActiveSession(type);
+            if (session != null) {
+                message.append(new LiteralText(String.format("  %s: %s (messages: %d, AI: %s, fav: %s)\n",
+                        type, session.getSessionId(), session.getContext().size(), session.getAssignedAi(), session.isFavorite() ? "yes" : "no")));
+            } else {
+                message.append(new LiteralText("  " + type + ": (none)\n"));
+            }
+        }
+        player.sendMessage(getChatPrefix().append(message), false);
+        return 1;
+    }
+
+    private static int toggleFavoriteSession(CommandContext<FabricClientCommandSource> context) {
+        ClientPlayerEntity player = context.getSource().getPlayer();
+        heyblack.mineds.session.Session session = SessionManager.getInstance().getActiveSession(SessionType.COMMAND);
+        if (session == null) {
+            player.sendMessage(getChatPrefix().append(new LiteralText("No active command session.").formatted(Formatting.YELLOW)), false);
+            return 0;
+        }
+        session.toggleFavorite();
+        player.sendMessage(getChatPrefix().append(new LiteralText("Session " + session.getSessionId() + " " + (session.isFavorite() ? "favorited" : "unfavorited"))), false);
         return 1;
     }
 }
